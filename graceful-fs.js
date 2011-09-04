@@ -16,6 +16,12 @@ Object.keys(fs)
                : graceful(fs[i])
   })
 
+if (process.platform === "win32"
+    && !process.binding("fs").lstat) {
+  exports.lstat = exports.stat
+  exports.lstatSync = exports.statSync
+}
+
 function graceful (fn) { return function GRACEFUL () {
   var args = Array.prototype.slice.call(arguments)
     , cb_ = args.pop()
