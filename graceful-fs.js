@@ -1,4 +1,3 @@
-
 // wrapper around the non-sync fs functions to gracefully handle
 // having too many file descriptors open.  Note that this is
 // *only* possible because async patterns let one interject timeouts
@@ -33,7 +32,7 @@ function graceful (fn) { return function GRACEFUL () {
       }, timeout ++)
       return
     }
-    timer = 0
+    timeout = 0
     cb_.apply(null, arguments)
   }
   fn.apply(fs, args)
