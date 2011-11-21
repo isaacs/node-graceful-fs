@@ -69,7 +69,11 @@ exports.ReadStream = function (opts) {
   }
 }
 
-exports.ReadStream.prototype = Object.create(
+exports.ReadStream.prototype = Object.create
+  ( fs.ReadStream.prototype
+  , { constructor: { value: exports.ReadStream
+                   , enumerable: false } } )
+
 
 exports.WriteStream = function (opts) {
   this.fd = opts.fd || "GRACEFULFS"
@@ -82,3 +86,9 @@ exports.WriteStream = function (opts) {
     this.flush()
   }
 }
+
+exports.WriteStream.prototype = Object.create
+  ( fs.WriteStream.prototype
+  , { constructor: { value: exports.WriteStream
+                   , enumerable: false } } )
+
