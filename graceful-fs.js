@@ -8,7 +8,8 @@ var fs = require("fs")
 
 exports = module.exports = fs
 
-fs.MAX_OPEN = 256
+fs.MIN_MAX_OPEN = 64
+fs.MAX_OPEN = 1024
 
 fs._open = fs.open
 fs._openSync = fs.openSync
@@ -35,7 +36,16 @@ fs.open = function (path, flags, mode, cb) {
     setTimeout(flush)
     return
   }
-  open(path, flags, mode, cb)
+  open(path, flags, mode, function (er, fd) {
+    if (er && er.code === "EMFILE" && curOpen > fs.MIN_MAX_OPEN) {
+      // that was too many.  reduce max, get back in queue.
+      // this should only happen once in a great while, and only
+      // if the ulimit -n is set lower than 1024.
+      fs.MAX_OPEN = curOpen - 1
+      return fs.open(path, flags, mode, cb)
+    }
+    cb(er, fd)
+  })
 }
 
 function open (path, flags, mode, cb) {
