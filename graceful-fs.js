@@ -249,6 +249,6 @@ function chownErOk (er) {
   // and most other unix tools that manage permissions.
   // When running as root, or if other types of errors are encountered,
   // then it's strict.
-  if ((!process.getuid || process.getuid() !== 0)
+  if (!er || (!process.getuid || process.getuid() !== 0)
       && (er.code === "EINVAL" || er.code === "EPERM")) return true
 }
