@@ -246,11 +246,11 @@ function chownFixSync (orig) {
 
 function chownErOk (er) {
   // if there's no getuid, or if getuid() is something other than 0,
-  // and the error is EINVAL or EPERM, then just ignore it.
+  // and the error is EINVAL, EPERM, or UNKNOWN then just ignore it.
   // This specific case is a silent failure in cp, install, tar,
   // and most other unix tools that manage permissions.
   // When running as root, or if other types of errors are encountered,
   // then it's strict.
   if (!er || (!process.getuid || process.getuid() !== 0)
-      && (er.code === "EINVAL" || er.code === "EPERM")) return true
+      && (er.code === "UNKNOWN" || er.code === "EINVAL" || er.code === "EPERM")) return true
 }
