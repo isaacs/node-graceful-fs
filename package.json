@@ -11,8 +11,5 @@
   "engines": {
     "node": ">=0.4.0"
   },
-  "dependencies": {
-    "fast-list": "1"
-  },
   "devDependencies": {}
 }
