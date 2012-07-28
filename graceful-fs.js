@@ -58,10 +58,7 @@ function open (path, flags, mode, cb) {
   cb = cb || noop
   fs._curOpen ++
   originalOpen.call(fs, path, flags, mode, function (er, fd) {
-    if (er) {
-      onclose()
-    }
-
+    if (er) onclose()
     cb(er, fd)
   })
 }
@@ -83,10 +80,9 @@ function onclose () {
 function flush () {
   while (fs._curOpen < fs.MAX_OPEN) {
     var req = queue.shift()
-    if (!req) break
+    if (!req) return
     open(req.path, req.flags || "r", req.mode || 0777, req.cb)
   }
-  if (queue.length === 0) return
 }
 
 fs.close = function (fd, cb) {
