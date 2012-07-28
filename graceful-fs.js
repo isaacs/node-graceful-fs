@@ -65,10 +65,8 @@ function open (path, flags, mode, cb) {
 
 fs.openSync = function (path, flags, mode) {
   var ret
-  try {
-    ret = originalOpenSync.call(fs, path, flags, mode)
-    fs._curOpen ++
-  } finally {}
+  ret = originalOpenSync.call(fs, path, flags, mode)
+  fs._curOpen ++
   return ret
 }
 
