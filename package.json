@@ -11,5 +11,20 @@
   "engines": {
     "node": ">=0.4.0"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {},
+  "scripts": {
+    "test": "tap test/*.js"
+  },
+  "keywords": [
+    "fs",
+    "EMFILE",
+    "error",
+    "handling",
+    "monkeypatch"
+  ],
+  "license": "BSD"
 }
