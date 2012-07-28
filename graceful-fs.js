@@ -70,7 +70,11 @@ function open (path, flags, mode, cb) {
 
 fs.openSync = function (path, flags, mode) {
   curOpen ++
-  return originalOpenSync.call(fs, path, flags, mode)
+  try {
+    return originalOpenSync.call(fs, path, flags, mode)
+  } catch (e) {
+      curOpen --
+  }
 }
 
 function onclose () {
