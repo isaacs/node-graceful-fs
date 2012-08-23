@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/isaacs/node-graceful-fs.png)](http://travis-ci.org/isaacs/node-graceful-fs)
 Just like node's `fs` module, but it does an incremental back-off when
 EMFILE is encountered.
 
