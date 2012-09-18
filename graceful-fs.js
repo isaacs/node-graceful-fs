@@ -2,6 +2,7 @@
 // fs operations wait until some have closed before trying to open more.
 
 var fs = require("fs")
+  , mkdirp = require("mkdirp")
 
 // there is such a thing as TOO graceful.
 if (fs.open === gracefulOpen) return
@@ -259,7 +260,6 @@ if (!fs.lchown) {
 
 
 
-
 // on Windows, A/V software can lock the directory, causing this
 // to fail with an EACCES or EPERM if the directory contains newly
 // created files.  Try again on failure, for up to 1 second.
@@ -275,5 +275,39 @@ if (process.platform === "win32") {
       }
       cb(er)
     })
+  }
+}
+
+
+// if read() returns EAGAIN, then just try it again.
+var read = fs.read
+fs.read = function (fd, buffer, offset, length, position, callback_) {
+  var callback
+  if (callback_ && typeof callback_ === 'function') {
+    var eagCounter = 0
+    callback = function (er, bytesRead) {
+      if (er && er.code === 'EAGAIN' && eagCounter < 10) {
+        eagCounter ++
+        return read.call(fs, fd, buffer, offset, length, position, callback)
+      }
+      callback_(er, bytesRead)
+    }
+  }
+  return read.call(fs, fd, buffer, offset, length, position, callback)
+}
+
+var readSync = fs.readSync
+fs.readSync = function (fd, buffer, offset, length, position) {
+  var eagCounter = 0
+  while (true) {
+    try {
+      return readSync.call(fs, fd, buffer, offset, length, position)
+    } catch (er) {
+      if (er.code === 'EAGAIN' && eagCounter < 10) {
+        eagCounter ++
+        continue
+      }
+      throw er
+    }
   }
 }
