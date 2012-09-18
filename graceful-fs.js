@@ -2,7 +2,6 @@
 // fs operations wait until some have closed before trying to open more.
 
 var fs = require("fs")
-  , mkdirp = require("mkdirp")
 
 // there is such a thing as TOO graceful.
 if (fs.open === gracefulOpen) return
