@@ -15,7 +15,9 @@
   "directories": {
     "test": "test"
   },
-  "dependencies": {},
+  "dependencies": {
+    "mkdirp": "~0.3.4"
+  },
   "scripts": {
     "test": "tap test/*.js"
   },
