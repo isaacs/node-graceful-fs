@@ -284,12 +284,12 @@ fs.read = function (fd, buffer, offset, length, position, callback_) {
   var callback
   if (callback_ && typeof callback_ === 'function') {
     var eagCounter = 0
-    callback = function (er, bytesRead) {
+    callback = function (er, _, __) {
       if (er && er.code === 'EAGAIN' && eagCounter < 10) {
         eagCounter ++
         return read.call(fs, fd, buffer, offset, length, position, callback)
       }
-      callback_(er, bytesRead)
+      callback_.apply(this, arguments)
     }
   }
   return read.call(fs, fd, buffer, offset, length, position, callback)
