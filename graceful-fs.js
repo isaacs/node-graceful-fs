@@ -269,6 +269,7 @@ if (!fs.lchown) {
 if (process.platform === "win32") {
   var rename_ = fs.rename
   fs.rename = function rename (from, to, cb) {
+    cb = cb || noop
     var start = Date.now()
     rename_(from, to, function CB (er) {
       if (er
