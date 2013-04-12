@@ -19,9 +19,19 @@
   },
   "keywords": [
     "fs",
-    "EMFILE",
+    "module",
+    "reading",
+    "retry",
+    "retries",
+    "queue",
     "error",
+    "errors",
     "handling",
+    "EMFILE",
+    "EAGAIN",
+    "EINVAL",
+    "EPERM",
+    "EACCESS",
     "monkeypatch"
   ],
   "license": "BSD"
