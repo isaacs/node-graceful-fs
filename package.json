@@ -1,7 +1,7 @@
 {
   "author": "Isaac Z. Schlueter <i@izs.me> (http://blog.izs.me)",
   "name": "graceful-fs",
-  "description": "fs monkey-patching to avoid EMFILE and other problems",
+  "description": "A drop-in replacement for fs, making various improvements.",
   "version": "1.2.0",
   "repository": {
     "type": "git",
