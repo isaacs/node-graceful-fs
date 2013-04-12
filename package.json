@@ -31,8 +31,7 @@
     "EAGAIN",
     "EINVAL",
     "EPERM",
-    "EACCESS",
-    "monkeypatch"
+    "EACCESS"
   ],
   "license": "BSD"
 }
