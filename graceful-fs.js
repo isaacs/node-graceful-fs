@@ -82,6 +82,9 @@ function flush () {
       case 'ReaddirReq':
         readdir(req.path, req.cb)
         break
+      case 'WriteFileReq':
+        writeFile(req.path, req.data, req.options, req.cb)
+        break
       default:
         throw new Error('Unknown req type: ' + req.constructor.name)
     }
@@ -140,6 +143,44 @@ function readdir (path, cb) {
 
 function ReaddirReq (path, cb) {
   this.path = path
+  this.cb = cb
+}
+
+
+fs.writeFile = gracefulWriteFile;
+
+function gracefulWriteFile(path, data, options, cb) {
+  if (typeof options === "function") cb = options, options = null
+  if (typeof cb !== "function") cb = noop
+
+  if (fs._curOpen >= fs.MAX_OPEN) {
+    queue.push(new WriteFileReq(path, data, options, cb))
+    setTimeout(flush)
+    return
+  }
+
+  writeFile(path, data, options, function (er) {
+    if (er && er.code === "EMFILE" && fs._curOpen > fs.MIN_MAX_OPEN) {
+      fs.MAX_OPEN = fs._curOpen - 1
+      return fs.writeFile(path, data, options, cb)
+    }
+    cb(er)
+  })
+}
+
+function writeFile (path, data, options, cb) {
+  cb = cb || noop
+  fs._curOpen ++
+  fs._originalFs.writeFile.call(fs, path, data, options, function (er) {
+    onclose()
+    cb(er)
+  })
+}
+
+function WriteFileReq (path, data, options, cb) {
+  this.path = path
+  this.data = data
+  this.options = options
   this.cb = cb
 }
 
