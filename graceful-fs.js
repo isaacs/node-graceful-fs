@@ -23,6 +23,25 @@ else if (/\bgfs\b/i.test(process.env.NODE_DEBUG || ''))
     console.error(m)
   }
 
+// process.cwd uses a fd
+var origCwd = process.cwd
+var cwd = null
+process.cwd = function() {
+  if (!cwd)
+    cwd = origCwd.call(process)
+  return cwd
+}
+
+var origChdir = process.chdir
+process.chdir = function(d) {
+  cwd = null
+  return origChdir.call(process)
+}
+
+process.cwd()
+
+
+
 fs._curOpen = 0
 
 fs.MIN_MAX_OPEN = 64
