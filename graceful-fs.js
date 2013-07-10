@@ -12,6 +12,17 @@ Object.getOwnPropertyNames(fs._originalFs).forEach(function(prop) {
 var queue = []
   , constants = require("constants")
 
+var debug = noop
+var util = require('util')
+if (util.debuglog)
+  debug = util.debuglog('gfs')
+else if (/\bgfs\b/i.test(process.env.NODE_DEBUG || ''))
+  debug = function() {
+    var m = util.format.apply(util, arguments)
+    m = 'GFS: ' + m.split(/\n/).join('\nGFS: ')
+    console.error(m)
+  }
+
 fs._curOpen = 0
 
 fs.MIN_MAX_OPEN = 64
