@@ -1,6 +1,7 @@
 // Monkey-patching the fs module.
 // It's ugly, but there is simply no other way to do this.
 var fs = module.exports = require('fs')
+var os = require('os')
 
 var assert = require('assert')
 
@@ -126,8 +127,7 @@ function Req () {
 }
 
 Req.prototype.done = function (er, result) {
-  // if an error, and the code is EMFILE, then get in the queue
-  if (er && er.code === "EMFILE") {
+  if (er && (er.code === "EMFILE" || (os.platform() === "win32" && er.code === "OK"))) {
     this.failures ++
     enqueue(this)
   } else {
