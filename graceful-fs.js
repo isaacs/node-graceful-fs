@@ -126,8 +126,7 @@ function Req () {
 }
 
 Req.prototype.done = function (er, result) {
-  // if an error, and the code is EMFILE, then get in the queue
-  if (er && er.code === "EMFILE") {
+  if (er && (er.code === "EMFILE" || (process.platform === "win32" && er.code === "OK"))) {
     this.failures ++
     enqueue(this)
   } else {
