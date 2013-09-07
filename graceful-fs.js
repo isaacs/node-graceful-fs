@@ -126,7 +126,15 @@ function Req () {
 }
 
 Req.prototype.done = function (er, result) {
-  if (er && (er.code === "EMFILE" || (process.platform === "win32" && er.code === "OK"))) {
+  var tryAgain = false
+  if (er) {
+    var code = er.code
+    var tryAgain = code === "EMFILE"
+    if (process.platform === "win32")
+      tryAgain = tryAgain || code === "OK"
+  }
+
+  if (tryAgain) {
     this.failures ++
     enqueue(this)
   } else {
