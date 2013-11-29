@@ -190,6 +190,19 @@ if (process.platform === "win32") {
       cb(er)
     })
   }
+  
+  var renameSync_ = fs.renameSync
+  fs.renameSync = function renameSync (from, to) {
+    var start = Date.now()
+    while (true) {
+      try {
+        return renameSync_(from, to);
+      } catch(er) {
+        if (er.code !== "EACCES" && er.code !== "EPERM") throw er;
+        if (Date.now() - start > 1000) throw er;
+      }
+    }
+  }
 }
 
 
