@@ -33,5 +33,10 @@
     "EPERM",
     "EACCESS"
   ],
-  "license": "BSD"
+  "license": "BSD",
+  "devDependencies": {
+    "mkdirp": "^0.5.0",
+    "rimraf": "^2.2.8",
+    "tap": "^0.4.13"
+  }
 }
