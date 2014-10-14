@@ -1,5 +1,11 @@
-// extend the builtin so that our monkeypatchery doesn't
-// muck with things not using graceful-fs
+// eeeeeevvvvviiiiiiillllll
+// more evil than monkey-patching the native builtin?
+// Not sure.
 
-var util = require('util')
-module.exports = util._extend({}, require('fs'))
+var mod = require("module")
+var pre = '(function (exports, require, module, __filename, __dirname) { '
+var post = '});'
+var src = pre + process.binding('natives').fs + post
+var vm = require('vm')
+var fn = vm.runInThisContext(src)
+return fn(exports, require, module, __filename, __dirname)
