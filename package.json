@@ -33,7 +33,7 @@
     "EPERM",
     "EACCESS"
   ],
-  "license": "BSD",
+  "license": "ISC",
   "devDependencies": {
     "mkdirp": "^0.5.0",
     "rimraf": "^2.2.8",
