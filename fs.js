@@ -8,7 +8,7 @@ function clone (obj) {
   if (obj === null || typeof obj !== 'object')
     return obj
 
-  if ('__proto__' in obj)
+  if (obj instanceof Object)
     var copy = { __proto__: obj.__proto__ }
   else
     var copy = Object.create(null)
