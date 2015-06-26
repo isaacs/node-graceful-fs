@@ -1,11 +1,10 @@
 {
-  "author": "Isaac Z. Schlueter <i@izs.me> (http://blog.izs.me)",
   "name": "graceful-fs",
   "description": "A drop-in replacement for fs, making various improvements.",
   "version": "3.0.8",
   "repository": {
     "type": "git",
-    "url": "git://github.com/isaacs/node-graceful-fs.git"
+    "url": "https://github.com/isaacs/node-graceful-fs"
   },
   "main": "graceful-fs.js",
   "engines": {
