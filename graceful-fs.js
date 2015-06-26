@@ -4,6 +4,14 @@ module.exports = require('./fs.js')
 // fix up some busted stuff, mostly on windows and old nodes
 require('./polyfills.js')
 
+module.exports.open = open
+
+if (process.version.substr(0, 4) === 'v0.8') {
+  var legacy = require('./legacy-streams.js')
+  ReadStream = legacy.ReadStream
+  WriteStream = legacy.WriteStream
+}
+
 module.exports.FileReadStream = ReadStream;  // Legacy name.
 module.exports.FileWriteStream = WriteStream;  // Legacy name.
 module.exports.ReadStream = ReadStream
@@ -12,7 +20,6 @@ module.exports.close = close
 module.exports.closeSync = closeSync
 module.exports.createReadStream = createReadStream
 module.exports.createWriteStream = createWriteStream
-module.exports.open = open
 module.exports.readFile = readFile
 module.exports.readdir = readdir
 
