@@ -1,5 +1,10 @@
 var test = require('tap').test
-var fs = require('../')
+var fs = require('../graceful-fs.js')
+
+test('graceful fs is monkeypatched fs', function (t) {
+  t.equal(fs, require('../fs.js'))
+  t.end()
+})
 
 test('open an existing file works', function (t) {
   var fd = fs.openSync(__filename, 'r')
