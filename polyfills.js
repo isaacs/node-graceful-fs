@@ -97,16 +97,6 @@ if (!fs.lutimes) {
       return ret
     }
 
-  } else if (fs.utimensat && constants.hasOwnProperty("AT_SYMLINK_NOFOLLOW")) {
-    // maybe utimensat will be bound soonish?
-    fs.lutimes = function (path, at, mt, cb) {
-      fs.utimensat(path, at, mt, constants.AT_SYMLINK_NOFOLLOW, cb)
-    }
-
-    fs.lutimesSync = function (path, at, mt) {
-      return fs.utimensatSync(path, at, mt, constants.AT_SYMLINK_NOFOLLOW)
-    }
-
   } else {
     fs.lutimes = function (_a, _b, _c, cb) { process.nextTick(cb) }
     fs.lutimesSync = function () {}
@@ -252,4 +242,3 @@ fs.readSync = function (fd, buffer, offset, length, position) {
     }
   }
 }
-
