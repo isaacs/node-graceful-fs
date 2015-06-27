@@ -40,7 +40,6 @@ test('open lots of stuff', function (t) {
     doneCalled++
 
     if (fds.length === 0) {
-      console.error('done called %d times', doneCalled)
       // First because of the timeout
       // Then to close the fd's opened afterwards
       // Then this time, to complete.
