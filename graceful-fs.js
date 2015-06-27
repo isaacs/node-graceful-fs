@@ -3,6 +3,26 @@ var polyfills = require('./polyfills.js')
 var legacy = require('./legacy-streams.js')
 var queue = []
 
+var util = require('util')
+
+function noop () {}
+
+var debug = noop
+if (util.debuglog)
+  debug = util.debuglog('gfs4')
+else if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || ''))
+  debug = function() {
+    var m = util.format.apply(util, arguments)
+    m = 'GFS4: ' + m.split(/\n/).join('\nGFS4: ')
+    console.error(m)
+  }
+
+if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
+  process.on('exit', function() {
+    debug(queue)
+    require('assert').equal(queue.length, 0)
+  })
+}
 
 module.exports = patch(require('./fs.js'))
 if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH) {
@@ -45,33 +65,81 @@ function patch (fs) {
     if (typeof options === 'function')
       cb = options, options = null
 
-    return go(path, options, cb)
+    return go$readFile(path, options, cb)
 
-    function go (path, options, cb) {
-      return fs$readFile(path, options, function (err, fd) {
+    function go$readFile (path, options, cb) {
+      return fs$readFile(path, options, function (err) {
         if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          queue.push([go, [path, options, cb]])
-        else if (typeof cb === 'function')
-          cb.apply(this, arguments)
+          enqueue([go$readFile, [path, options, cb]])
+        else {
+          if (typeof cb === 'function')
+            cb.apply(this, arguments)
+          retry()
+        }
       })
     }
   }
 
+  var fs$writeFile = fs.writeFile
+  fs.writeFile = writeFile
+  function writeFile (path, data, options, cb) {
+    if (typeof options === 'function')
+      cb = options, options = null
+
+    return go$writeFile(path, data, options, cb)
+
+    function go$writeFile (path, data, options, cb) {
+      return fs$writeFile(path, data, options, function (err) {
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+          enqueue([go$writeFile, [path, data, options, cb]])
+        else {
+          if (typeof cb === 'function')
+            cb.apply(this, arguments)
+          retry()
+        }
+      })
+    }
+  }
+
+  var fs$appendFile = fs.appendFile
+  if (fs$appendFile)
+    fs.appendFile = appendFile
+  function appendFile (path, data, options, cb) {
+    if (typeof options === 'function')
+      cb = options, options = null
+
+    return go$appendFile(path, data, options, cb)
+
+    function go$appendFile (path, data, options, cb) {
+      return fs$appendFile(path, data, options, function (err) {
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+          enqueue([go$appendFile, [path, data, options, cb]])
+        else {
+          if (typeof cb === 'function')
+            cb.apply(this, arguments)
+          retry()
+        }
+      })
+    }
+  }
 
   var fs$readdir = fs.readdir
   fs.readdir = readdir
   function readdir (path, cb) {
-    return go(path, cb)
+    return go$readdir(path, cb)
 
-    function go () {
+    function go$readdir () {
       return fs$readdir(path, function (err, files) {
         if (files && files.sort)
           files.sort();  // Backwards compatibility with graceful-fs.
 
         if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          queue.push([go, [path, cb]])
-        else if (typeof cb === 'function')
-          cb.apply(this, arguments)
+          enqueue([go$readdir, [path, cb]])
+        else {
+          if (typeof cb === 'function')
+            cb.apply(this, arguments)
+          retry()
+        }
       })
     }
   }
@@ -151,14 +219,17 @@ function patch (fs) {
     if (typeof mode === 'function')
       cb = mode, mode = null
 
-    return go(path, flags, mode, cb)
+    return go$open(path, flags, mode, cb)
 
-    function go (path, flags, mode, cb) {
+    function go$open (path, flags, mode, cb) {
       return fs$open(path, flags, mode, function (err, fd) {
         if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          queue.push([go, [path, flags, mode, cb]])
-        else if (typeof cb === 'function')
-          cb.apply(this, arguments)
+          enqueue([go$open, [path, flags, mode, cb]])
+        else {
+          if (typeof cb === 'function')
+            cb.apply(this, arguments)
+          retry()
+        }
       })
     }
   }
@@ -166,9 +237,15 @@ function patch (fs) {
   return fs
 }
 
+function enqueue (elem) {
+  debug('ENQUEUE', elem[0].name, elem[1])
+  queue.push(elem)
+}
 
 function retry () {
   var elem = queue.shift()
-  if (elem)
+  if (elem) {
+    debug('RETRY', elem[0].name, elem[1])
     elem[0].apply(null, elem[1])
+  }
 }

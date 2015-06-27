@@ -13,7 +13,7 @@ var env = Object.keys(process.env).reduce(function (env, k) {
 })
 
 files.filter(function (f) {
-  if (fs.statSync(dir + '/' + f).isFile()) {
+  if (/\.js$/.test(f) && fs.statSync(dir + '/' + f).isFile()) {
     tap.spawn(node, ['test/' + f])
     return true
   }
