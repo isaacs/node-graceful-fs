@@ -37,5 +37,11 @@
     "mkdirp": "^0.5.0",
     "rimraf": "^2.2.8",
     "tap": "^1.2.0"
-  }
+  },
+  "files": [
+    "fs.js",
+    "graceful-fs.js",
+    "legacy-streams.js",
+    "polyfills.js"
+  ]
 }
