@@ -47,7 +47,7 @@ function patch (fs) {
 
     return go(path, options, cb)
 
-    function go (path, flags, mode, cb) {
+    function go (path, options, cb) {
       return fs$readFile(path, options, function (err, fd) {
         if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
           queue.push([go, [path, options, cb]])
