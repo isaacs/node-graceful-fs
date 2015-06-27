@@ -26,17 +26,13 @@ test('make files', function (t) {
 
 test('read files', function (t) {
   // now read them
-  var done = 0;
+  t.plan(num)
   for (var i = 0; i < num; ++i) {
-    fs.readFile(paths[i], function(err, data) {
+    fs.readFile(paths[i], 'ascii', function(err, data) {
       if (err)
         throw err;
 
-      ++done;
-      if (done === num) {
-        t.pass('success');
-        t.end()
-      }
+      t.equal(data, 'content')
     });
   }
 });
