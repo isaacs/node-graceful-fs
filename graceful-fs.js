@@ -1,158 +1,174 @@
-// Monkey-patching the fs module.
-// It's ugly, but there is simply no other way to do this.
-var fs = module.exports = require('./fs.js')
-
-var assert = require('assert')
-
-// fix up some busted stuff, mostly on windows and old nodes
-require('./polyfills.js')
-
-var util = require('util')
-
-function noop () {}
-
-var debug = noop
-if (util.debuglog)
-  debug = util.debuglog('gfs')
-else if (/\bgfs\b/i.test(process.env.NODE_DEBUG || ''))
-  debug = function() {
-    var m = util.format.apply(util, arguments)
-    m = 'GFS: ' + m.split(/\n/).join('\nGFS: ')
-    console.error(m)
-  }
-
-if (/\bgfs\b/i.test(process.env.NODE_DEBUG || '')) {
-  process.on('exit', function() {
-    debug('fds', fds)
-    debug(queue)
-    assert.equal(queue.length, 0)
-  })
-}
-
-
-var originalOpen = fs.open
-fs.open = open
-
-function open(path, flags, mode, cb) {
-  if (typeof mode === "function") cb = mode, mode = null
-  if (typeof cb !== "function") cb = noop
-  new OpenReq(path, flags, mode, cb)
-}
-
-function OpenReq(path, flags, mode, cb) {
-  this.path = path
-  this.flags = flags
-  this.mode = mode
-  this.cb = cb
-  Req.call(this)
-}
-
-util.inherits(OpenReq, Req)
-
-OpenReq.prototype.process = function() {
-  originalOpen.call(fs, this.path, this.flags, this.mode, this.done)
-}
-
-var fds = {}
-OpenReq.prototype.done = function(er, fd) {
-  debug('open done', er, fd)
-  if (fd)
-    fds['fd' + fd] = this.path
-  Req.prototype.done.call(this, er, fd)
-}
-
-
-var originalReaddir = fs.readdir
-fs.readdir = readdir
-
-function readdir(path, cb) {
-  if (typeof cb !== "function") cb = noop
-  new ReaddirReq(path, cb)
-}
-
-function ReaddirReq(path, cb) {
-  this.path = path
-  this.cb = cb
-  Req.call(this)
-}
-
-util.inherits(ReaddirReq, Req)
-
-ReaddirReq.prototype.process = function() {
-  originalReaddir.call(fs, this.path, this.done)
-}
-
-ReaddirReq.prototype.done = function(er, files) {
-  if (files && files.sort)
-    files = files.sort()
-  Req.prototype.done.call(this, er, files)
-  onclose()
-}
-
-
-var originalClose = fs.close
-fs.close = close
-
-function close (fd, cb) {
-  debug('close', fd)
-  if (typeof cb !== "function") cb = noop
-  delete fds['fd' + fd]
-  originalClose.call(fs, fd, function(er) {
-    onclose()
-    cb(er)
-  })
-}
-
-
-var originalCloseSync = fs.closeSync
-fs.closeSync = closeSync
-
-function closeSync (fd) {
-  try {
-    return originalCloseSync(fd)
-  } finally {
-    onclose()
-  }
-}
-
-
-// Req class
-function Req () {
-  // start processing
-  this.done = this.done.bind(this)
-  this.failures = 0
-  this.process()
-}
-
-Req.prototype.done = function (er, result) {
-  var tryAgain = false
-  if (er) {
-    var code = er.code
-    var tryAgain = code === "EMFILE" || code === "ENFILE"
-    if (process.platform === "win32")
-      tryAgain = tryAgain || code === "OK"
-  }
-
-  if (tryAgain) {
-    this.failures ++
-    enqueue(this)
-  } else {
-    var cb = this.cb
-    cb(er, result)
-  }
-}
-
+var fs = require('fs')
+var polyfills = require('./polyfills.js')
+var legacy = require('./legacy-streams.js')
 var queue = []
 
-function enqueue(req) {
-  queue.push(req)
-  debug('enqueue %d %s', queue.length, req.constructor.name, req)
+
+module.exports = patch(require('./fs.js'))
+if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH) {
+  module.exports = patch(fs)
 }
 
-function onclose() {
-  var req = queue.shift()
-  if (req) {
-    debug('process', req.constructor.name, req)
-    req.process()
+// Always patch fs.close/closeSync, because we want to
+// retry() whenever a close happens *anywhere* in the program.
+// This is essential when multiple graceful-fs instances are
+// in play at the same time.
+fs.close = (function (fs$close) { return function (fd, cb) {
+  return fs$close.call(fs, fd, function (err) {
+    if (!err)
+      retry()
+
+    if (typeof cb === 'function')
+      cb.apply(this, arguments)
+  })
+}})(fs.close)
+
+fs.closeSync = (function (fs$closeSync) { return function (fd) {
+  // Note that graceful-fs also retries when fs.closeSync() fails.
+  // Looks like a bug to me, although it's probably a harmless one.
+  var rval = fs$closeSync.apply(fs, arguments)
+  retry()
+  return rval
+}})(fs.closeSync)
+
+function patch (fs) {
+  // Everything that references the open() function needs to be in here
+  polyfills(fs)
+  fs.gracefulify = patch
+  fs.FileReadStream = ReadStream;  // Legacy name.
+  fs.FileWriteStream = WriteStream;  // Legacy name.
+  fs.createReadStream = createReadStream
+  fs.createWriteStream = createWriteStream
+  var fs$readFile = fs.readFile
+  fs.readFile = readFile
+  function readFile (path, options, cb) {
+    if (typeof options === 'function')
+      cb = options, options = null
+
+    return go(path, options, cb)
+
+    function go (path, flags, mode, cb) {
+      return fs$readFile(path, options, function (err, fd) {
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+          queue.push([go, [path, options, cb]])
+        else if (typeof cb === 'function')
+          cb.apply(this, arguments)
+      })
+    }
   }
+
+
+  var fs$readdir = fs.readdir
+  fs.readdir = readdir
+  function readdir (path, cb) {
+    return go(path, cb)
+
+    function go () {
+      return fs$readdir(path, function (err, files) {
+        if (files && files.sort)
+          files.sort();  // Backwards compatibility with graceful-fs.
+
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+          queue.push([go, [path, cb]])
+        else if (typeof cb === 'function')
+          cb.apply(this, arguments)
+      })
+    }
+  }
+
+
+  if (process.version.substr(0, 4) === 'v0.8') {
+    var legStreams = legacy(fs)
+    ReadStream = legStreams.ReadStream
+    WriteStream = legStreams.WriteStream
+  }
+
+  var fs$ReadStream = fs.ReadStream
+  ReadStream.prototype = Object.create(fs$ReadStream.prototype)
+  ReadStream.prototype.open = ReadStream$open
+
+  var fs$WriteStream = fs.WriteStream
+  WriteStream.prototype = Object.create(fs$WriteStream.prototype)
+  WriteStream.prototype.open = WriteStream$open
+
+  fs.ReadStream = ReadStream
+  fs.WriteStream = WriteStream
+
+  function ReadStream (path, options) {
+    if (this instanceof ReadStream)
+      return fs$ReadStream.apply(this, arguments), this
+    else
+      return ReadStream.apply(Object.create(ReadStream.prototype), arguments)
+  }
+
+  function ReadStream$open () {
+    var that = this
+    open(that.path, that.flags, that.mode, function (err, fd) {
+      if (err) {
+        if (that.autoClose)
+          that.destroy()
+
+        that.emit('error', err)
+      } else {
+        that.fd = fd
+        that.emit('open', fd)
+        that.read()
+      }
+    })
+  }
+
+  function WriteStream (path, options) {
+    if (this instanceof WriteStream)
+      return fs$WriteStream.apply(this, arguments), this
+    else
+      return WriteStream.apply(Object.create(WriteStream.prototype), arguments)
+  }
+
+  function WriteStream$open () {
+    var that = this
+    open(that.path, that.flags, that.mode, function (err, fd) {
+      if (err) {
+        that.destroy()
+        that.emit('error', err)
+      } else {
+        that.fd = fd
+        that.emit('open', fd)
+      }
+    })
+  }
+
+  function createReadStream (path, options) {
+    return new ReadStream(path, options)
+  }
+
+  function createWriteStream (path, options) {
+    return new WriteStream(path, options)
+  }
+
+  var fs$open = fs.open
+  fs.open = open
+  function open (path, flags, mode, cb) {
+    if (typeof mode === 'function')
+      cb = mode, mode = null
+
+    return go(path, flags, mode, cb)
+
+    function go (path, flags, mode, cb) {
+      return fs$open(path, flags, mode, function (err, fd) {
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+          queue.push([go, [path, flags, mode, cb]])
+        else if (typeof cb === 'function')
+          cb.apply(this, arguments)
+      })
+    }
+  }
+
+  return fs
+}
+
+
+function retry () {
+  var elem = queue.shift()
+  if (elem)
+    elem[0].apply(null, elem[1])
 }
