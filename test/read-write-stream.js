@@ -18,38 +18,31 @@ test('write files', function (t) {
   rimraf.sync(p)
   mkdirp.sync(p)
 
-  var done = 0
+  t.plan(num)
   for (var i = 0; i < num; ++i) {
     paths[i] = 'files/file-' + i
     var stream = fs.createWriteStream(paths[i])
-    stream.on('end', function () {
-      ++done
-      if (done === num) {
-        t.pass('success')
-        t.end()
-      }
+    stream.on('finish', function () {
+      t.pass('success')
     })
     stream.write('content')
     stream.end()
   }
-
-  t.end()
 })
 
 test('read files', function (t) {
   // now read them
-  var done = 0
-  for (var i = 0; i < num; ++i) {
+  t.plan(num)
+  for (var i = 0; i < num; ++i) (function (i) {
     var stream = fs.createReadStream(paths[i])
-    stream.on('data', function (data) {})
-    stream.on('end', function () {
-      ++done
-      if (done === num) {
-        t.pass('success')
-        t.end()
-      }
+    var data = ''
+    stream.on('data', function (c) {
+      data += c
     })
-  }
+    stream.on('end', function () {
+      t.equal(data, 'content')
+    })
+  })(i)
 })
 
 test('cleanup', function (t) {
