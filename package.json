@@ -14,7 +14,7 @@
     "test": "test"
   },
   "scripts": {
-    "test": "tap test/*.js --cov"
+    "test": "node test.js | tap -"
   },
   "keywords": [
     "fs",
