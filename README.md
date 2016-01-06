@@ -7,7 +7,7 @@ The improvements are meant to normalize behavior across different
 platforms and environments, and to make filesystem access more
 resilient to errors.
 
-## Improvements over [fs module](http://api.nodejs.org/fs.html)
+## Improvements over [fs module](https://nodejs.org/api/fs.html)
 
 graceful-fs:
 
