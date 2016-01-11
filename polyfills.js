@@ -20,7 +20,7 @@ process.chdir = function(d) {
 
 module.exports = patch
 
-function patch (fs) {
+function patch (fs, fileEnqueue, fileNext) {
   // (re-)implement some things that are known busted or missing.
 
   // lchmod, broken prior to 0.6.2
@@ -75,15 +75,18 @@ function patch (fs) {
   // created files.  Try again on failure, for up to 1 second.
   if (process.platform === "win32") {
     fs.rename = (function (fs$rename) { return function (from, to, cb) {
-      var start = Date.now()
-      fs$rename(from, to, function CB (er) {
-        if (er
-            && (er.code === "EACCES" || er.code === "EPERM")
-            && Date.now() - start < 1000) {
-          return fs$rename(from, to, CB)
-        }
-        if (cb) cb(er)
-      })
+      fileEnqueue(to, [ 'lock', function (from, to, cb) {
+        var start = Date.now()
+        fs$rename(from, to, function CB (er) {
+          if (er
+              && (er.code === "EACCES" || er.code === "EPERM")
+              && Date.now() - start < 1000) {
+            return fs$rename(from, to, CB)
+          }
+          fileNext(to)
+          if (cb) cb(er)
+        })
+      }, [from, to, cb]])
     }})(fs.rename)
   }
 
