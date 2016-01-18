@@ -66,9 +66,15 @@ test('read and replace files', function (t) {
 test('confirm renames', function (t) {
   t.plan(num)
   for (var i = 0; i < num; ++i) {
-    fs.access(paths[i], function (er) {
-      t.equal(er.code, 'ENOENT', 'was renamed')
-    })
+    if (fs.access) {
+      fs.access(paths[i], function (er) {
+        t.equal(er.code, 'ENOENT', 'was renamed')
+      })
+    } else {
+      fs.exists(paths[i], function (exists) {
+        t.notOk(exists, 'was renamed')
+      })
+    }
   }
 })
 
