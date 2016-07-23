@@ -44,17 +44,17 @@ function patch (fs) {
   fs.fchown = chownFix(fs.fchown)
   fs.lchown = chownFix(fs.lchown)
 
-  fs.chmod = chownFix(fs.chmod)
-  fs.fchmod = chownFix(fs.fchmod)
-  fs.lchmod = chownFix(fs.lchmod)
+  fs.chmod = chmodFix(fs.chmod)
+  fs.fchmod = chmodFix(fs.fchmod)
+  fs.lchmod = chmodFix(fs.lchmod)
 
   fs.chownSync = chownFixSync(fs.chownSync)
   fs.fchownSync = chownFixSync(fs.fchownSync)
   fs.lchownSync = chownFixSync(fs.lchownSync)
 
-  fs.chmodSync = chownFix(fs.chmodSync)
-  fs.fchmodSync = chownFix(fs.fchmodSync)
-  fs.lchmodSync = chownFix(fs.lchmodSync)
+  fs.chmodSync = chmodFixSync(fs.chmodSync)
+  fs.fchmodSync = chmodFixSync(fs.fchmodSync)
+  fs.lchmodSync = chmodFixSync(fs.lchmodSync)
 
   // if lchmod/lchown do not exist, then make them no-ops
   if (!fs.lchmod) {
@@ -201,6 +201,28 @@ function patchLutimes (fs) {
     fs.lutimesSync = function () {}
   }
 }
+
+function chmodFix (orig) {
+  if (!orig) return orig
+  return function (target, mode, cb) {
+    return orig.call(fs, target, mode, function (er, res) {
+      if (chownErOk(er)) er = null
+      cb(er, res)
+    })
+  }
+}
+
+function chmodFixSync (orig) {
+  if (!orig) return orig
+  return function (target, mode) {
+    try {
+      return orig.call(fs, target, mode)
+    } catch (er) {
+      if (!chownErOk(er)) throw er
+    }
+  }
+}
+
 
 function chownFix (orig) {
   if (!orig) return orig
