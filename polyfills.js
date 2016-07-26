@@ -59,13 +59,13 @@ function patch (fs) {
   // if lchmod/lchown do not exist, then make them no-ops
   if (!fs.lchmod) {
     fs.lchmod = function (path, mode, cb) {
-      process.nextTick(cb)
+      if (cb) process.nextTick(cb)
     }
     fs.lchmodSync = function () {}
   }
   if (!fs.lchown) {
     fs.lchown = function (path, uid, gid, cb) {
-      process.nextTick(cb)
+      if (cb) process.nextTick(cb)
     }
     fs.lchownSync = function () {}
   }
@@ -121,20 +121,19 @@ function patch (fs) {
 
 function patchLchmod (fs) {
   fs.lchmod = function (path, mode, callback) {
-    callback = callback || noop
     fs.open( path
            , constants.O_WRONLY | constants.O_SYMLINK
            , mode
            , function (err, fd) {
       if (err) {
-        callback(err)
+        if (callback) callback(err)
         return
       }
       // prefer to return the chmod error, if one occurs,
       // but still try to close, and report closing errors if they occur.
       fs.fchmod(fd, mode, function (err) {
         fs.close(fd, function(err2) {
-          callback(err || err2)
+          if (callback) callback(err || err2)
         })
       })
     })
@@ -167,11 +166,13 @@ function patchLutimes (fs) {
   if (constants.hasOwnProperty("O_SYMLINK")) {
     fs.lutimes = function (path, at, mt, cb) {
       fs.open(path, constants.O_SYMLINK, function (er, fd) {
-        cb = cb || noop
-        if (er) return cb(er)
+        if (er) {
+          if (cb) cb(er)
+          return
+        }
         fs.futimes(fd, at, mt, function (er) {
           fs.close(fd, function (er2) {
-            return cb(er || er2)
+            if (cb) cb(er || er2)
           })
         })
       })
@@ -197,7 +198,7 @@ function patchLutimes (fs) {
     }
 
   } else {
-    fs.lutimes = function (_a, _b, _c, cb) { process.nextTick(cb) }
+    fs.lutimes = function (_a, _b, _c, cb) { if (cb) process.nextTick(cb) }
     fs.lutimesSync = function () {}
   }
 }
@@ -207,7 +208,7 @@ function chmodFix (orig) {
   return function (target, mode, cb) {
     return orig.call(fs, target, mode, function (er, res) {
       if (chownErOk(er)) er = null
-      cb(er, res)
+      if (cb) cb(er, res)
     })
   }
 }
@@ -229,7 +230,7 @@ function chownFix (orig) {
   return function (target, uid, gid, cb) {
     return orig.call(fs, target, uid, gid, function (er, res) {
       if (chownErOk(er)) er = null
-      cb(er, res)
+      if (cb) cb(er, res)
     })
   }
 }
