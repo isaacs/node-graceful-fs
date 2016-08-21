@@ -38,5 +38,8 @@
     "mkdirp": "^0.5.0",
     "rimraf": "^2.2.8",
     "tap": "^1.2.0"
+  },
+  "dependencies": {
+    "natives": "^1.0.1"
   }
 }
