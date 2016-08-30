@@ -1,1 +1,1 @@
-module.exports = require('natives').require('fs')
+module.exports = require('natives').require('fs', ['stream'])
