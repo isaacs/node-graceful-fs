@@ -27,3 +27,11 @@ test('graceful fs uses same stats constructor as fs', function (t) {
 
   t.end()
 })
+
+test('does not throw when async stat fails', function (t) {
+  fs.stat(__filename + ' this does not exist', function (er, stats) {
+    t.ok(er)
+    t.notOk(stats)
+    t.end()
+  })
+})
