@@ -36,7 +36,7 @@ test('does not throw when async stat fails', function (t) {
   })
 })
 
-test('does not throw when async stat fails', function (t) {
+test('throws ENOENT when sync stat fails', function (t) {
   t.throws(function() {
     gfs.statSync(__filename + ' this does not exist')
   }, /ENOENT/)
