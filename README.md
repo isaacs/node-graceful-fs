@@ -21,7 +21,9 @@ resilient to errors.
 
 On Windows, it retries renaming a file for up to one second if `EACCESS`
 or `EPERM` error occurs, likely because antivirus software has locked
-the directory.
+the directory. It also queues up `rename` while `readFile`, `writeFile`
+or `appendFile` are running on the target file and vice-versa, to avoid
+conflicts replacing a file being accessed by these calls.
 
 ## USAGE
 
