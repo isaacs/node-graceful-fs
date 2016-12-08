@@ -36,7 +36,7 @@
   "devDependencies": {
     "mkdirp": "^0.5.0",
     "rimraf": "^2.2.8",
-    "tap": "^5.4.2"
+    "tap": "^7.1.2"
   },
   "files": [
     "fs.js",
