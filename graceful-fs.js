@@ -4,6 +4,8 @@ var legacy = require('./legacy-streams.js')
 var queue = []
 
 var util = require('util')
+var QUEUE_LIMIT = 10000
+var activeFileHandlersCount = 0
 
 function noop () {}
 
@@ -33,26 +35,31 @@ if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH) {
 // retry() whenever a close happens *anywhere* in the program.
 // This is essential when multiple graceful-fs instances are
 // in play at the same time.
-module.exports.close =
 fs.close = (function (fs$close) { return function (fd, cb) {
   return fs$close.call(fs, fd, function (err) {
-    if (!err)
+    if (!err) {
+      activeFileHandlersCount--;
       retry()
+    }
 
     if (typeof cb === 'function')
       cb.apply(this, arguments)
   })
 }})(fs.close)
 
-module.exports.closeSync =
-fs.closeSync = (function (fs$closeSync) { return function (fd) {
-  // Note that graceful-fs also retries when fs.closeSync() fails.
-  // Looks like a bug to me, although it's probably a harmless one.
-  var rval = fs$closeSync.apply(fs, arguments)
-  retry()
-  return rval
-}})(fs.closeSync)
+module.exports.setConcurrentOpenFilesLimit = function(limit) {
+  QUEUE_LIMIT = limit
+}
 
+module.exports.closeSync =
+    fs.closeSync = (function (fs$closeSync) { return function (fd) {
+      // Note that graceful-fs also retries when fs.closeSync() fails.
+      // Looks like a bug to me, although it's probably a harmless one.
+      var rval = fs$closeSync.apply(fs, arguments)
+      activeFileHandlersCount--;
+      retry()
+      return rval
+    }})(fs.closeSync)
 function patch (fs) {
   // Everything that references the open() function needs to be in here
   polyfills(fs)
@@ -67,7 +74,9 @@ function patch (fs) {
     if (typeof options === 'function')
       cb = options, options = null
 
-    return go$readFile(path, options, cb)
+    enqueue([go$readFile, [path, options, cb]])
+    retry()
+    return
 
     function go$readFile (path, options, cb) {
       return fs$readFile(path, options, function (err) {
@@ -88,7 +97,10 @@ function patch (fs) {
     if (typeof options === 'function')
       cb = options, options = null
 
-    return go$writeFile(path, data, options, cb)
+    enqueue([go$writeFile, [path, data, options, cb]])
+    retry()
+    return
+
 
     function go$writeFile (path, data, options, cb) {
       return fs$writeFile(path, data, options, function (err) {
@@ -110,7 +122,9 @@ function patch (fs) {
     if (typeof options === 'function')
       cb = options, options = null
 
-    return go$appendFile(path, data, options, cb)
+    enqueue([go$appendFile, [path, data, options, cb]])
+    retry()
+    return
 
     function go$appendFile (path, data, options, cb) {
       return fs$appendFile(path, data, options, function (err) {
@@ -136,7 +150,9 @@ function patch (fs) {
     }
     args.push(go$readdir$cb)
 
-    return go$readdir(args)
+    enqueue([go$readdir, [args]])
+    retry()
+    return
 
     function go$readdir$cb (err, files) {
       if (files && files.sort)
@@ -230,7 +246,9 @@ function patch (fs) {
     if (typeof mode === 'function')
       cb = mode, mode = null
 
-    return go$open(path, flags, mode, cb)
+    enqueue([go$open, [path, flags, mode, cb]])
+    retry()
+    return
 
     function go$open (path, flags, mode, cb) {
       return fs$open(path, flags, mode, function (err, fd) {
@@ -254,9 +272,12 @@ function enqueue (elem) {
 }
 
 function retry () {
+  if (activeFileHandlersCount >= QUEUE_LIMIT)
+    return
   var elem = queue.shift()
   if (elem) {
     debug('RETRY', elem[0].name, elem[1])
+    activeFileHandlersCount++
     elem[0].apply(null, elem[1])
   }
 }
