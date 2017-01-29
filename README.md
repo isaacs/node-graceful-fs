@@ -19,7 +19,7 @@ resilient to errors.
 * makes `lchmod` and `lchown` become noops, if not available.
 * retries reading a file if `read` results in EAGAIN error.
 
-On Windows, it retries renaming a file for up to one second if `EACCESS`
+On Windows, it retries renaming a file for up to one second if `EACCES`
 or `EPERM` error occurs, likely because antivirus software has locked
 the directory.
 
