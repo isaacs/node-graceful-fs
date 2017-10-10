@@ -103,8 +103,8 @@ function patch (fs) {
                 fs$rename(from, to, CB)
               else
                 fs.stat(from, function (fromStater, fromSt) {
-                  if (!fromSt && toSt) {
-                    if (cb) cb(er)
+                  if (!fromSt && toSt || fromSt && toSt && fromSt.size === toSt.size) {
+                    if (cb) cb(toStater ? er : null)
                   } else {
                     fs$rename(from, to, CB)
                   }
