@@ -1,14 +1,6 @@
 process.env.GRACEFUL_FS_PLATFORM = 'win32'
 
 var fs = require('fs')
-fs.rename = function (a, b, cb) {
-  setTimeout(function () {
-    var er = new Error('EPERM blerg')
-    er.code = 'EPERM'
-    cb(er)
-  })
-}
-
 var gfs = require('../')
 var t = require('tap')
 var a = __dirname + '/a'
@@ -22,9 +14,8 @@ t.test('setup', function (t) {
 
 t.test('rename', { timeout: 100 }, function (t) {
   t.plan(1)
-
   gfs.rename(a, b, function (er) {
-    t.ok(er)
+    t.ok(!er)
   })
 })
 
