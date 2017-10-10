@@ -99,11 +99,17 @@ function patch (fs) {
             && (er.code === "EACCES" || er.code === "EPERM")
             && Date.now() - start < 60000) {
           setTimeout(function() {
-            fs.stat(to, function (stater, st) {
-              if (stater && stater.code === "ENOENT")
-                fs$rename(from, to, CB);
+            fs.stat(to, function (toStater, toSt) {
+              if (toStater && toStater.code === "ENOENT")
+                fs$rename(from, to, CB)
               else
-                cb(er)
+                fs.stat(from, function (fromStater, fromSt) {
+                  if (!fromSt && toSt) {
+                    if (cb) cb(er)
+                  } else {
+                    fs$rename(from, to, CB)
+                  }
+                })
             })
           }, backoff)
           if (backoff < 100)
