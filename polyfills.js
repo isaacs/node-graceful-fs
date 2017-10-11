@@ -139,6 +139,8 @@ function patch (fs) {
           } else {
             throw e
           }
+          // Wait until destination exists and source no longer exists or that we've reached the backoff limit
+          while ((fs.existsSync(from) || !fs.existsSync(to)) && Date.now() < backoffUntil) {}
         }
       }
       tryRename()
