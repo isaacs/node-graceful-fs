@@ -29,7 +29,7 @@ t.test('setup async', function (t) {
 t.test('rename async', { timeout: 60000 }, function (t) {
   t.plan(testFiles.length * 2)
   var dest = tmpDir + '/test'
-  testFiles.forEach((src) => {
+  testFiles.forEach(function (src) {
     gfs.rename(src, dest, function (er) {
       t.error(er, 'Failed to rename file', er)
       t.notOk(fs.existsSync(src), 'Source file still exists:' + src)
@@ -53,7 +53,7 @@ t.test('rename sync', { timeout: 60000 }, function (t) {
   var done = 0;
   var errors = 0;
   var dest = tmpDir + '/test'
-  testFiles.forEach((src) => {
+  testFiles.forEach(function (src) {
     var srcData = fs.readFileSync(src).toString()
     t.doesNotThrow(function () { gfs.renameSync(src, dest) }, 'Exception thrown when renaming')
     var destData = fs.readFileSync(dest).toString()
