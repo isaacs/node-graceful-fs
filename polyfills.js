@@ -120,6 +120,29 @@ function patch (fs) {
         if (cb) cb(er)
       })
     }})(fs.rename)
+
+    
+    fs.renameSync = (function (fs$renameSync) { return function (from, to) {
+      var start = Date.now()
+      var backoff = 0;
+      var backoffUntil = start + 60000;
+      function tryRename () {
+        try {
+          fs$renameSync(from, to)
+        } catch (e) {
+          if ((e.code === "EACCS" || e.code === "EPERM") && start < backoffUntil) {
+            if (backoff < 100)
+              backoff += 10
+            var waitUntil = Date.now() + backoff
+            while (waitUntil > Date.now()){}
+            tryRename()
+          } else {
+            throw e
+          }
+        }
+      }
+      tryRename()
+    }})(fs.renameSync)
   }
 
   // if read() returns EAGAIN, then just try it again.
