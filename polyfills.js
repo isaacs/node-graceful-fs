@@ -106,9 +106,7 @@ function patch (fs) {
                   if (!fromSt && toSt) {
                     if (cb) cb(toStater ? er : null)
                   } else if (fromSt && toSt && fromSt.size === toSt.size) {
-                    fs.unlink(from, function () {
-                      cb(toStater ? er : null)
-                    })
+                    if (cb) cb(null)
                   } else {
                     fs$rename(from, to, CB)
                   }
