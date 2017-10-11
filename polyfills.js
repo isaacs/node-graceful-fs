@@ -133,6 +133,9 @@ function patch (fs) {
             var waitUntil = Date.now() + backoff
             while (waitUntil > Date.now()){}
             tryRename()
+          } else if (backoff > 0 && e.code === "ENOENT") {
+            // The source does no longer exist because it was moved during one of the retries
+            // so we can safely ignore this exception
           } else {
             throw e
           }
