@@ -122,7 +122,6 @@ function patch (fs) {
       })
     }})(fs.rename)
 
-    
     fs.renameSync = (function (fs$renameSync) { return function (from, to) {
       var start = Date.now()
       var backoff = 0;
