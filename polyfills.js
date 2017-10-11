@@ -93,31 +93,29 @@ function patch (fs) {
     fs.rename = (function (fs$rename) { return function (from, to, cb) {
       var start = Date.now()
       var backoff = 0;
+      var backoffUntil = start + 60000;
       fs$rename(from, to, function CB (er) {
-        if (er
-            && (er.code === "EACCES" || er.code === "EPERM")
-            && Date.now() - start < 60000) {
+        if (er && (er.code === "EACCES" || er.code === "EPERM") && Date.now() < backoffUntil) {
           setTimeout(function() {
-            fs.stat(to, function (toStater, toSt) {
-              if (toStater && toStater.code === "ENOENT")
-                fs$rename(from, to, CB)
-              else
-                fs.stat(from, function (fromStater, fromSt) {
-                  if (!fromSt && toSt) {
-                    if (cb) cb(toStater ? er : null)
-                  } else if (fromSt && toSt && fromSt.size === toSt.size) {
-                    if (cb) cb(null)
-                  } else {
-                    fs$rename(from, to, CB)
-                  }
-                })
+            fs.stat(from, function (erFrom, statFrom) {
+              if (erFrom) return cb(erFrom)
+              fs.stat(to, function (erTo, statTo) {
+                if (statFrom.size === statTo.size && 
+                  statFrom.ctime === statTo.ctime) {
+                  cb(null)
+                } else
+                  fs$rename(from, to, CB)
+              });
             })
           }, backoff)
-          if (backoff < 100)
+          if (backoff < 250)
             backoff += 10;
-          return;
+        } else if (backoff && er && er.code === "ENOENT") {
+          // The source does no longer exist so we can assume it was moved during one of the tries
+          if (cb) cb(null)
+        } else {
+          if (cb) cb(er)
         }
-        if (cb) cb(er)
       })
     }})(fs.rename)
 
