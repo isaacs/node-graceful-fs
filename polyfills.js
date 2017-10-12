@@ -104,7 +104,11 @@ function patch (fs) {
           setTimeout(function() {
             fs.stat(from, function (erFrom, statFrom) {
               fs.stat(to, function (erTo, statTo) {
-                if (
+                if (erFrom && !erTo) {
+                  // If the source no longer exists we 
+                  // can probably assume it was moved
+                  cb(null)
+                } else if (
                     statFrom.size === statTo.size && 
                     statFrom.ctime === statTo.ctime
                   ) {
