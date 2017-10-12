@@ -80,15 +80,19 @@ function patch (fs) {
     fs.lchownSync = function () {}
   }
 
-  // on Windows, A/V software can lock the directory, causing this
-  // to fail with an EACCES or EPERM if the directory contains newly
-  // created files.  Try again on failure, for up to 60 seconds.
-
-  // Set the timeout this long because some Windows Anti-Virus, such as Parity
-  // bit9, may lock files for up to a minute, causing npm package install
-  // failures. Also, take care to yield the scheduler. Windows scheduling gives
-  // CPU to a busy looping process, which can cause the program causing the lock
-  // contention to be starved of CPU by node, so the contention doesn't resolve.
+  // fs.rename and fs.renameSync uses MoveFileEx function on Windows.
+  // MoveFileEx is not atomic and honors Windows sharing modes, compared to
+  // os/syscall.rename used by Linux and OSX that are atomic and does not
+  // care if the file or directory is locked.
+  //
+  // This means that whenever a file or parent directory is locked (in use)
+  // on Windows the rename might fail with EACCS or EPERM errors depending
+  // the sharing mode set on the file and/or directory.
+  // 
+  // These win32-only overrides try to normalize fs.rename/renameSync
+  // behavior so it's more in line with how it works on Linux and OSX.
+  // It does this by retrying a failed rename for up to 60 seconds until
+  // actually failing.
   if (platform === "win32") {
     fs.rename = (function (fs$rename) { return function (from, to, cb) {
       var start = Date.now()
@@ -98,10 +102,11 @@ function patch (fs) {
         if (er && (er.code === "EACCES" || er.code === "EPERM") && Date.now() < backoffUntil) {
           setTimeout(function() {
             fs.stat(from, function (erFrom, statFrom) {
-              if (erFrom) return cb(erFrom)
               fs.stat(to, function (erTo, statTo) {
-                if (statFrom.size === statTo.size && 
-                  statFrom.ctime === statTo.ctime) {
+                if (
+                    statFrom.size === statTo.size && 
+                    statFrom.ctime === statTo.ctime
+                  ) {
                   cb(null)
                 } else
                   fs$rename(from, to, CB)
@@ -111,7 +116,8 @@ function patch (fs) {
           if (backoff < 250)
             backoff += 10;
         } else if (backoff && er && er.code === "ENOENT") {
-          // The source does no longer exist so we can assume it was moved during one of the tries
+          // The source does no longer exist so we
+          // can assume it was moved during one of the tries
           if (cb) cb(null)
         } else {
           if (cb) cb(er)
@@ -134,13 +140,17 @@ function patch (fs) {
             while (waitUntil > Date.now()){}
             tryRename()
           } else if (backoff > 0 && e.code === "ENOENT") {
-            // The source does no longer exist because it was moved during one of the retries
-            // so we can safely ignore this exception
+            // The source does no longer exist because so we can
+            // assume it was moved
           } else {
             throw e
           }
-          // Wait until destination exists and source no longer exists or that we've reached the backoff limit
-          while ((fs.existsSync(from) || !fs.existsSync(to)) && Date.now() < backoffUntil) {}
+          // Wait until destination exists and source no longer
+          // exists or that we've reached the backoff limit
+          while (
+            (fs.existsSync(from) || !fs.existsSync(to)) &&
+            Date.now() < backoffUntil
+          ) {}
         }
       }
       tryRename()
