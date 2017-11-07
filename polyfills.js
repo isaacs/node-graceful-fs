@@ -108,6 +108,7 @@ function patch (fs) {
                   // can probably assume it was moved
                   cb(null)
                 } else if (
+                    statFrom && statTo &&
                     statFrom.size === statTo.size && 
                     statFrom.ctime === statTo.ctime
                   ) {
