@@ -113,6 +113,9 @@ function patch (fs) {
                     statFrom.size === statTo.size && 
                     statFrom.ctime === statTo.ctime
                   ) {
+                  // If the source and target have 
+                  // the same size and ctime, we
+                  // can assume it was moved
                   cb(null)
                 } else
                   fs$rename(from, to, CB)
