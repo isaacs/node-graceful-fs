@@ -95,6 +95,15 @@ function patch (fs) {
   // actually failing.
   if (platform === "win32") {
     fs.rename = (function (fs$rename) { return function (from, to, cb) {
+      try {
+        var stat = fs.statSync(to)
+        if (!stat) return
+        if (stat.isDirectory()) {
+          fs.rmdirSync(to)
+        } else {
+          fs.unlinkSync(to)
+        }
+      } catch (e) { /* Ignore any error */ }
       var start = Date.now()
       var backoff = 0;
       var backoffUntil = start + 60000;
@@ -134,6 +143,15 @@ function patch (fs) {
     }})(fs.rename)
 
     fs.renameSync = (function (fs$renameSync) { return function (from, to) {
+      try {
+        var stat = fs.statSync(to)
+        if (!stat) return
+        if (stat.isDirectory()) {
+          fs.rmdirSync(to)
+        } else {
+          fs.unlinkSync(to)
+        }
+      } catch (e) { /* Ignore any error */ }
       var start = Date.now()
       var backoff = 0;
       var backoffUntil = start + 60000;
