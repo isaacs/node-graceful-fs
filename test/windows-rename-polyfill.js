@@ -70,3 +70,39 @@ t.test('cleanup', function (t) {
   try { fs.rmdirSync(tmpDir) } catch (e) {}
   t.end()
 })
+
+
+var testDir1 = tmpDir + 'test1'
+var testDir2 = tmpDir + 'test2'
+
+function setupDirs() {
+  try { fs.mkdirSync(testDir1) } catch (e) {}
+  try { fs.mkdirSync(testDir2) } catch (e) {}
+}
+
+function teardownDirs() {
+  try { fs.rmdirSync(testDir1) } catch (e) {}
+  try { fs.rmdirSync(testDir2) } catch (e) {}
+}
+
+t.test('rename async dir to existing', { timeout: 60000 }, function (t) {
+  t.plan(2)
+  setupDirs()
+  gfs.rename(testDir1, testDir2, function (err) {
+    t.notOk(err)
+    if (!err)
+      t.notOk(fs.existsSync(testDir1), 'Source directory still exists')
+    else
+      t.ok(!err)
+  })
+  teardownDirs()
+})
+
+t.test('rename sync dir to existing', { timeout: 60000 }, function (t) {
+  t.plan(2)
+  setupDirs();
+  t.doesNotThrow(function () {
+    gfs.renameSync(testDir1, testDir2)
+  })
+  t.notOk(fs.existsSync(testDir1), 'Source directory still exists')
+})
