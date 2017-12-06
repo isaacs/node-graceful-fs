@@ -81,38 +81,107 @@ function patch (fs) {
     fs.lchownSync = function () {}
   }
 
-  // on Windows, A/V software can lock the directory, causing this
-  // to fail with an EACCES or EPERM if the directory contains newly
-  // created files.  Try again on failure, for up to 60 seconds.
-
-  // Set the timeout this long because some Windows Anti-Virus, such as Parity
-  // bit9, may lock files for up to a minute, causing npm package install
-  // failures. Also, take care to yield the scheduler. Windows scheduling gives
-  // CPU to a busy looping process, which can cause the program causing the lock
-  // contention to be starved of CPU by node, so the contention doesn't resolve.
+  // fs.rename and fs.renameSync uses MoveFileEx function on Windows.
+  // MoveFileEx is not atomic and honors Windows sharing modes, compared to
+  // os/syscall.rename used by Linux and OSX that are atomic and does not
+  // care if the file or directory is locked.
+  //
+  // This means that whenever a file or parent directory is locked (in use)
+  // on Windows the rename might fail with EACCS or EPERM errors depending
+  // the sharing mode set on the file and/or directory.
+  // 
+  // These win32-only overrides try to normalize fs.rename/renameSync
+  // behavior so it's more in line with how it works on Linux and OSX.
+  // It does this by retrying a failed rename for up to 60 seconds until
+  // actually failing.
   if (platform === "win32") {
     fs.rename = (function (fs$rename) { return function (from, to, cb) {
+      try {
+        var stat = fs.statSync(to)
+        if (!stat) return
+        if (stat.isDirectory()) {
+          fs.rmdirSync(to)
+        } else {
+          fs.unlinkSync(to)
+        }
+      } catch (e) { /* Ignore any error */ }
       var start = Date.now()
       var backoff = 0;
+      var backoffUntil = start + 60000;
       fs$rename(from, to, function CB (er) {
-        if (er
-            && (er.code === "EACCES" || er.code === "EPERM")
-            && Date.now() - start < 60000) {
+        if (er && (er.code === "EACCES" || er.code === "EPERM") && Date.now() < backoffUntil) {
           setTimeout(function() {
-            fs.stat(to, function (stater, st) {
-              if (stater && stater.code === "ENOENT")
-                fs$rename(from, to, CB);
-              else
-                cb(er)
+            fs.stat(from, function (erFrom, statFrom) {
+              fs.stat(to, function (erTo, statTo) {
+                if (erFrom && !erTo) {
+                  // If the source no longer exists we 
+                  // can probably assume it was moved
+                  cb(null)
+                } else if (
+                    statFrom && statTo &&
+                    statFrom.size === statTo.size && 
+                    statFrom.ctime === statTo.ctime
+                  ) {
+                  // If the source and target have 
+                  // the same size and ctime, we
+                  // can assume it was moved
+                  cb(null)
+                } else
+                  fs$rename(from, to, CB)
+              });
             })
           }, backoff)
-          if (backoff < 100)
+          if (backoff < 250)
             backoff += 10;
-          return;
+        } else if (backoff && er && er.code === "ENOENT") {
+          // The source does no longer exist so we
+          // can assume it was moved during one of the tries
+          if (cb) cb(null)
+        } else {
+          if (cb) cb(er)
         }
-        if (cb) cb(er)
       })
     }})(fs.rename)
+
+    fs.renameSync = (function (fs$renameSync) { return function (from, to) {
+      try {
+        var stat = fs.statSync(to)
+        if (!stat) return
+        if (stat.isDirectory()) {
+          fs.rmdirSync(to)
+        } else {
+          fs.unlinkSync(to)
+        }
+      } catch (e) { /* Ignore any error */ }
+      var start = Date.now()
+      var backoff = 0;
+      var backoffUntil = start + 60000;
+      function tryRename () {
+        try {
+          fs$renameSync(from, to)
+        } catch (e) {
+          if ((e.code === "EACCS" || e.code === "EPERM") && start < backoffUntil) {
+            if (backoff < 100)
+              backoff += 10
+            var waitUntil = Date.now() + backoff
+            while (waitUntil > Date.now()){}
+            tryRename()
+          } else if (backoff > 0 && e.code === "ENOENT") {
+            // The source does no longer exist because so we can
+            // assume it was moved
+          } else {
+            throw e
+          }
+          // Wait until destination exists and source no longer
+          // exists or that we've reached the backoff limit
+          while (
+            (fs.existsSync(from) || !fs.existsSync(to)) &&
+            Date.now() < backoffUntil
+          ) {}
+        }
+      }
+      tryRename()
+    }})(fs.renameSync)
   }
 
   // if read() returns EAGAIN, then just try it again.
