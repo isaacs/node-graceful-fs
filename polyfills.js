@@ -299,6 +299,19 @@ function statFixSync (orig) {
     if (stats.gid < 0) stats.gid += 0x100000000
     return stats;
   }
+  
+  var renameSync_ = fs.renameSync
+  fs.renameSync = function renameSync (from, to) {
+    var start = Date.now()
+    while (true) {
+      try {
+        return renameSync_(from, to);
+      } catch(er) {
+        if (er.code !== "EACCES" && er.code !== "EPERM") throw er;
+        if (Date.now() - start > 1000) throw er;
+      }
+    }
+  }
 }
 
 // ENOSYS means that the fs doesn't support the op. Just ignore
