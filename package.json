@@ -30,6 +30,7 @@
     "EAGAIN",
     "EINVAL",
     "EPERM",
+    "EACCES",
     "EACCESS"
   ],
   "license": "ISC",
