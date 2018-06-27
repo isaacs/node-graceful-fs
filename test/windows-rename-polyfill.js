@@ -94,8 +94,8 @@ t.test('rename async dir to existing', { timeout: 5000 }, function (t) {
       t.notOk(fs.existsSync(testDir1), 'Source directory still exists')
     else
       t.ok(!err)
+    teardownDirs()
   })
-  teardownDirs()
 })
 
 t.test('rename sync dir to existing', { timeout: 5000 }, function (t) {
@@ -105,4 +105,5 @@ t.test('rename sync dir to existing', { timeout: 5000 }, function (t) {
     gfs.renameSync(testDir1, testDir2)
   })
   t.notOk(fs.existsSync(testDir1), 'Source directory still exists')
+  teardownDirs()
 })
