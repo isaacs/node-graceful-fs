@@ -116,7 +116,7 @@ function patch (fs) {
                 if (erFrom && !erTo) {
                   // If the source no longer exists we 
                   // can probably assume it was moved
-                  cb(null)
+                  if (cb) cb(null)
                 } else if (
                     statFrom && statTo &&
                     statFrom.size === statTo.size && 
@@ -125,7 +125,7 @@ function patch (fs) {
                   // If the source and target have 
                   // the same size and ctime, we
                   // can assume it was moved
-                  cb(null)
+                  if (cb) cb(null)
                 } else
                   fs$rename(from, to, CB)
               });
