@@ -4,7 +4,7 @@ var origCwd = process.cwd
 var cwd = null
 
 var platform = process.env.GRACEFUL_FS_PLATFORM || process.platform
-var win32MaxBackoff = process.env.GRACEFUL_FS_WIN32_MAX_BACKOFF || 5000;
+var win32MaxBackoff = process.env.GRACEFUL_FS_WIN32_MAX_BACKOFF || 5000
 
 process.cwd = function() {
   if (!cwd)
@@ -113,8 +113,8 @@ function patch (fs) {
         // ignore other errors
       }
       var start = Date.now()
-      var backoff = 0;
-      var backoffUntil = start + win32MaxBackoff;
+      var backoff = 0
+      var backoffUntil = start + win32MaxBackoff
       fs$rename(from, to, function CB (er) {
         if (er && (er.code === "EACCES" || er.code === "EPERM") && Date.now() < backoffUntil) {
           setTimeout(function() {
@@ -135,11 +135,11 @@ function patch (fs) {
                   if (cb) cb(null)
                 } else
                   fs$rename(from, to, CB)
-              });
+              })
             })
           }, backoff)
           if (backoff < 250)
-            backoff += 10;
+            backoff += 10
         } else if (backoff && er && er.code === "ENOENT") {
           // The source does no longer exist so we
           // can assume it was moved during one of the tries
@@ -167,8 +167,8 @@ function patch (fs) {
         // ignore other errors
       }
       var start = Date.now()
-      var backoff = 0;
-      var backoffUntil = start + win32MaxBackoff;
+      var backoff = 0
+      var backoffUntil = start + win32MaxBackoff
       function tryRename () {
         try {
           fs$renameSync(from, to)
