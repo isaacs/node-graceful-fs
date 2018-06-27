@@ -26,7 +26,7 @@ t.test('setup async', function (t) {
   t.end()
 })
 
-t.test('rename async', { timeout: 60000 }, function (t) {
+t.test('rename async', { timeout: 5000 }, function (t) {
   t.plan(testFiles.length * 2)
   var dest = tmpDir + '/test'
   testFiles.forEach(function (src) {
@@ -48,7 +48,7 @@ t.test('setup sync', function (t) {
   t.end()
 })
 
-t.test('rename sync', { timeout: 60000 }, function (t) {
+t.test('rename sync', { timeout: 5000 }, function (t) {
   t.plan((testFiles.length * 2) + 1)
   var done = 0;
   var errors = 0;
@@ -85,7 +85,7 @@ function teardownDirs() {
   try { fs.rmdirSync(testDir2) } catch (e) {}
 }
 
-t.test('rename async dir to existing', { timeout: 60000 }, function (t) {
+t.test('rename async dir to existing', { timeout: 5000 }, function (t) {
   t.plan(2)
   setupDirs()
   gfs.rename(testDir1, testDir2, function (err) {
@@ -98,7 +98,7 @@ t.test('rename async dir to existing', { timeout: 60000 }, function (t) {
   teardownDirs()
 })
 
-t.test('rename sync dir to existing', { timeout: 60000 }, function (t) {
+t.test('rename sync dir to existing', { timeout: 5000 }, function (t) {
   t.plan(2)
   setupDirs();
   t.doesNotThrow(function () {

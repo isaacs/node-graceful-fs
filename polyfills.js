@@ -4,6 +4,7 @@ var origCwd = process.cwd
 var cwd = null
 
 var platform = process.env.GRACEFUL_FS_PLATFORM || process.platform
+var win32MaxBackoff = process.env.GRACEFUL_FS_WIN32_MAX_BACKOFF || 5000;
 
 process.cwd = function() {
   if (!cwd)
@@ -91,8 +92,8 @@ function patch (fs) {
   // 
   // These win32-only overrides try to normalize fs.rename/renameSync
   // behavior so it's more in line with how it works on Linux and OSX.
-  // It does this by retrying a failed rename for up to 60 seconds until
-  // actually failing.
+  // It does this by retrying a failed rename for up to 5 seconds (or
+  // value of GRACEFUL_FS_WIN32_MAX_BACKOFF) until actually failing.
   if (platform === "win32") {
     fs.rename = (function (fs$rename) { return function (from, to, cb) {
       try {
@@ -106,7 +107,7 @@ function patch (fs) {
       } catch (e) { /* Ignore any error */ }
       var start = Date.now()
       var backoff = 0;
-      var backoffUntil = start + 60000;
+      var backoffUntil = start + win32MaxBackoff;
       fs$rename(from, to, function CB (er) {
         if (er && (er.code === "EACCES" || er.code === "EPERM") && Date.now() < backoffUntil) {
           setTimeout(function() {
@@ -154,7 +155,7 @@ function patch (fs) {
       } catch (e) { /* Ignore any error */ }
       var start = Date.now()
       var backoff = 0;
-      var backoffUntil = start + 60000;
+      var backoffUntil = start + win32MaxBackoff;
       function tryRename () {
         try {
           fs$renameSync(from, to)
