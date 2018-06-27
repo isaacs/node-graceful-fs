@@ -104,7 +104,14 @@ function patch (fs) {
         } else {
           fs.unlinkSync(to)
         }
-      } catch (e) { /* Ignore any error */ }
+      } catch (e) {
+        if (e.code === "ENOTEMPTY") {
+          // target directory not empty, can't rename
+          if (cb) cb(e)
+          return
+        }
+        // ignore other errors
+      }
       var start = Date.now()
       var backoff = 0;
       var backoffUntil = start + win32MaxBackoff;
@@ -152,7 +159,13 @@ function patch (fs) {
         } else {
           fs.unlinkSync(to)
         }
-      } catch (e) { /* Ignore any error */ }
+      } catch (e) {
+        if (e.code === "ENOTEMPTY") {
+          // target directory not empty, can't rename
+          throw e
+        }
+        // ignore other errors
+      }
       var start = Date.now()
       var backoff = 0;
       var backoffUntil = start + win32MaxBackoff;

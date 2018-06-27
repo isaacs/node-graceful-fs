@@ -107,3 +107,24 @@ t.test('rename sync dir to existing', { timeout: 5000 }, function (t) {
   t.notOk(fs.existsSync(testDir1), 'Source directory still exists')
   teardownDirs()
 })
+
+t.test('rename async dir to existing, not empty', { timeout: 5000 }, function (t) {
+  t.plan(3)
+  setupDirs()
+  gfs.rename(testDir1, tmpDir, function (err) {
+    t.ok(err)
+    t.equal(err.code, "ENOTEMPTY")
+    t.ok(fs.existsSync(testDir1), 'Source directory was renamed')
+    teardownDirs()
+  })
+})
+
+t.test('rename sync dir to existing, not empty', { timeout: 5000 }, function (t) {
+  t.plan(2)
+  setupDirs();
+  t.throws(function () {
+    gfs.renameSync(testDir1, tmpDir)
+  }, { code: "ENOTEMPTY" });
+  t.ok(fs.existsSync(testDir1), 'Source directory was renamed')
+  teardownDirs()
+})
