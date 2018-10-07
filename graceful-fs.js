@@ -162,11 +162,11 @@ function patch (fs) {
     WriteStream = legStreams.WriteStream
   }
 
-  var fs$ReadStream = fs.ReadStream
+  var fs$ReadStream = fs.createReadStream
   ReadStream.prototype = Object.create(fs$ReadStream.prototype)
   ReadStream.prototype.open = ReadStream$open
 
-  var fs$WriteStream = fs.WriteStream
+  var fs$WriteStream = fs.createWriteStream
   WriteStream.prototype = Object.create(fs$WriteStream.prototype)
   WriteStream.prototype.open = WriteStream$open
 
