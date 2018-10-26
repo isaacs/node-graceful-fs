@@ -29,7 +29,7 @@ fs.readdir = function(path, options, cb) {
       er.code = 'EMFILE'
       cb(er)
       process.nextTick(function () {
-        fs.closeSync(fs.openSync(__filename, 'r'))
+        g.closeSync(fs.openSync(__filename, 'r'))
       })
     })
     return

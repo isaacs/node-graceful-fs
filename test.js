@@ -1,4 +1,3 @@
-var spawn = require('child_process').spawn
 var fs = require('fs')
 var tap = require('tap')
 var dir = __dirname + '/test'
@@ -14,11 +13,12 @@ var env = Object.keys(process.env).reduce(function (env, k) {
 
 files.filter(function (f) {
   if (/\.js$/.test(f) && fs.statSync(dir + '/' + f).isFile()) {
-    tap.spawn(node, ['test/' + f])
+    // expose-gc is so we can check for memory leaks
+    tap.spawn(node, ['--expose-gc', 'test/' + f])
     return true
   }
 }).forEach(function (f) {
-  tap.spawn(node, ['test/' + f], {
+  tap.spawn(node, ['--expose-gc', 'test/' + f], {
     env: env
   }, '🐵  test/' + f)
 })
