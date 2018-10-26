@@ -1,7 +1,7 @@
 var fs = require('fs')
-var clone = require('./clone.js')
 var polyfills = require('./polyfills.js')
 var legacy = require('./legacy-streams.js')
+var clone = require('./clone.js')
 
 var queue = []
 

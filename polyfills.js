@@ -1,4 +1,3 @@
-var fs = require('./fs.js')
 var constants = require('constants')
 
 var origCwd = process.cwd
@@ -145,7 +144,7 @@ function patch (fs) {
       }
     }
   }})(fs.readSync)
-}
+
 
 function patchLchmod (fs) {
   fs.lchmod = function (path, mode, callback) {
@@ -327,4 +326,5 @@ function chownErOk (er) {
   }
 
   return false
+}
 }
