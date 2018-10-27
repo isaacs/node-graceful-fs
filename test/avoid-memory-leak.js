@@ -3,12 +3,12 @@ var t = require('tap')
 
 t.test('no memory leak when loading multiple times', function(t) {
     t.plan(1);
-    importFresh('../')
+    importFresh(process.cwd() + '/graceful-fs.js') // node 0.10-5 were getting: Cannot find module '../'
     const mbUsedBefore = process.memoryUsage().heapUsed / Math.pow(1024, 2);
     // simulate project with 4000 tests
     var i = 0;
     function importFreshGracefulFs() {
-        importFresh('../');
+        importFresh(process.cwd() + '/graceful-fs.js');
         if (i < 4000) {
             i++;
             process.nextTick(() => importFreshGracefulFs());
