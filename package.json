@@ -37,7 +37,7 @@
     "import-fresh": "^2.0.0",
     "mkdirp": "^0.5.0",
     "rimraf": "^2.2.8",
-    "tap": "^11.0.0"
+    "tap": "^12.0.1"
   },
   "files": [
     "fs.js",
