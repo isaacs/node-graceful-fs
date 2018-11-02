@@ -4,7 +4,7 @@ var fs = require("fs")
 var currentTest
 
 var strings = ['b', 'z', 'a']
-var buffs = strings.map(function (s) { return new Buffer(s) })
+var buffs = strings.map(function (s) { return Buffer.from(s) })
 var hexes = buffs.map(function (b) { return b.toString('hex') })
 
 function getRet (encoding) {
