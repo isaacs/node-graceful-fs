@@ -60,7 +60,7 @@ module.exports.closeSync = (function (fs$closeSync) { return function (fd) {
 // We look for the string `graceful-fs` from the comment above. This
 // way we are not adding any extra properties and it will detect if older
 // versions of graceful-fs are installed.
-if (!fs.closeSync.toString().includes('graceful-fs')) {
+if (!/\bgraceful-fs\b/.test(fs.closeSync.toString())) {
   fs.closeSync = module.exports.closeSync;
   fs.close = module.exports.close;
 }
