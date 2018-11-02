@@ -43,6 +43,7 @@
     "tap": "^12.0.1"
   },
   "files": [
+    "clone.js",
     "fs.js",
     "graceful-fs.js",
     "legacy-streams.js",
