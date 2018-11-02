@@ -8,7 +8,7 @@
   },
   "main": "graceful-fs.js",
   "engines": {
-    "node": ">=0.4.0"
+    "node": ">=6"
   },
   "directories": {
     "test": "test"
