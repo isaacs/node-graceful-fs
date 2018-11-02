@@ -61,12 +61,12 @@ module.exports.closeSync = (function (fs$closeSync) { return function (fd) {
 // way we are not adding any extra properties and it will detect if older
 // versions of graceful-fs are installed.
 if (!fs.closeSync.toString().includes('graceful-fs')) {
-    fs.closeSync = module.exports.closeSync;
-    fs.close = module.exports.close;
+  fs.closeSync = module.exports.closeSync;
+  fs.close = module.exports.close;
 }
 
 function patch (fs) {
-    // Everything that references the open() function needs to be in here
+  // Everything that references the open() function needs to be in here
   polyfills(fs)
   fs.gracefulify = patch
   fs.FileReadStream = ReadStream;  // Legacy name.
@@ -154,9 +154,9 @@ function patch (fs) {
       if (files && files.sort)
         files.sort()
 
-      if (err && (err.code === 'EMFILE' || err.code === 'ENFILE')) {
-          enqueue([go$readdir, [args]])
-      }
+      if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+        enqueue([go$readdir, [args]])
+
       else {
         if (typeof cb === 'function')
           cb.apply(this, arguments)
