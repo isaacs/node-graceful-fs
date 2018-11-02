@@ -46,6 +46,7 @@
     "fs.js",
     "graceful-fs.js",
     "legacy-streams.js",
-    "polyfills.js"
+    "polyfills.js",
+    "clone.js"
   ]
 }
