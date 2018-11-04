@@ -7,9 +7,6 @@
     "url": "https://github.com/isaacs/node-graceful-fs"
   },
   "main": "graceful-fs.js",
-  "engines": {
-    "node": ">=6"
-  },
   "directories": {
     "test": "test"
   },
