@@ -10,3 +10,12 @@ test('graceful fs uses same stats constructor as fs', function (t) {
     'should be instance of fs.Stats')
   t.end()
 })
+
+test('graceful fs uses same stats constructor as fs (async)', function (t) {
+  gfs.stat(__filename, function (er, stats) {
+    t.notOk(er, 'should not receive an error result')
+    t.ok(stats, 'should receive a valid stats object')
+    t.ok(stats instanceof fs.Stats, 'should receive a valid stats object')
+    t.end()
+  })
+})
