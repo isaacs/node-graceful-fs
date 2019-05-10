@@ -26,6 +26,16 @@ test('graceful fs includes correct uid & gid', function (t) {
   t.end()
 })
 
+;(process.platform !== 'win32') && test('graceful fs includes valid uid & gid (async)', function (t) {
+  gfs.stat(__filename, function (er, stats) {
+    t.notOk(er)
+    t.ok(stats)
+    t.ok(stats.uid)
+    t.ok(stats.gid)
+    t.end()
+  })
+})
+
 test('does not throw when async stat fails', function (t) {
   gfs.stat(__filename + ' this does not exist', function (er, stats) {
     t.ok(er)
