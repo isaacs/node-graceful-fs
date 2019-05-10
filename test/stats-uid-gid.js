@@ -14,9 +14,7 @@ fs.statSync = function(path) {
 
 var gfs = require('../graceful-fs.js')
 
-test('graceful fs uses same stats constructor as fs', function (t) {
-  t.equal(gfs.Stats, fs.Stats, 'should reference the same constructor')
-
+test('graceful fs includes correct uid & gid', function (t) {
   if (!process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH) {
     t.equal(fs.statSync(__filename).uid, -2)
     t.equal(fs.statSync(__filename).gid, -2)
