@@ -277,13 +277,21 @@ function patch (fs) {
     if (!orig) return orig
     // Older versions of Node erroneously returned signed integers for
     // uid + gid.
-    return function (target, cb) {
-      return orig.call(fs, target, function (er, stats) {
-        if (!stats) return cb.apply(this, arguments)
+    return function (target, options, cb) {
+      if (typeof options === 'function') {
+        cb = options
+        options = null
+      }
+      function callback(err, stats) {
+        if (!stats && cb) return cb.apply(this, arguments)
         if (stats.uid < 0) stats.uid += 0x100000000
         if (stats.gid < 0) stats.gid += 0x100000000
         if (cb) cb.apply(this, arguments)
-      })
+      }
+      if (options) {
+        return orig.call(fs, target, options, callback);
+      }
+      return orig.call(fs, target, callback);
     }
   }
 
@@ -291,8 +299,13 @@ function patch (fs) {
     if (!orig) return orig
     // Older versions of Node erroneously returned signed integers for
     // uid + gid.
-    return function (target) {
-      var stats = orig.call(fs, target)
+    return function (target, options) {
+      var stats
+      if (options) {
+        stats = orig.call(fs, target, options)
+      } else {
+        stats = orig.call(fs, target)
+      }
       if (stats.uid < 0) stats.uid += 0x100000000
       if (stats.gid < 0) stats.gid += 0x100000000
       return stats;
