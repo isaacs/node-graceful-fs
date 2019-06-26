@@ -37,7 +37,7 @@
     "import-fresh": "^2.0.0",
     "mkdirp": "^0.5.0",
     "rimraf": "^2.2.8",
-    "tap": "^12.0.1"
+    "tap": "^12.7.0"
   },
   "files": [
     "fs.js",
@@ -45,5 +45,6 @@
     "legacy-streams.js",
     "polyfills.js",
     "clone.js"
-  ]
+  ],
+  "dependencies": {}
 }
