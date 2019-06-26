@@ -1,4 +1,3 @@
-var t = require('tap')
 var realFs = require('fs')
 
 var methods = ['chown', 'chownSync', 'chmod', 'chmodSync']
@@ -26,6 +25,7 @@ function makeErr (path, method) {
 }
 
 var fs = require('../')
+var t = require('tap')
 
 var errs = ['ENOSYS', 'EINVAL', 'EPERM']
 t.plan(errs.length * methods.length)

@@ -1,6 +1,6 @@
-var test = require('tap').test
 var fs = require('fs')
 var gfs = require('../graceful-fs.js')
+var test = require('tap').test
 
 test('graceful fs uses same stats constructor as fs', function (t) {
   t.equal(gfs.Stats, fs.Stats, 'should reference the same constructor')

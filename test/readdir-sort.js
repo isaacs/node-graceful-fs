@@ -1,4 +1,3 @@
-var test = require("tap").test
 var fs = require("fs")
 
 var readdir = fs.readdir
@@ -9,6 +8,7 @@ fs.readdir = function(path, cb) {
 }
 
 var g = require("../")
+var test = require("tap").test
 
 test("readdir reorder", function (t) {
   g.readdir("whatevers", function (er, files) {

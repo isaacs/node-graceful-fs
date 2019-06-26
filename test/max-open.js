@@ -1,5 +1,5 @@
-var test = require('tap').test
 var fs = require('../')
+var test = require('tap').test
 
 test('open lots of stuff', function (t) {
   // Get around EBADF from libuv by making sure that stderr is opened

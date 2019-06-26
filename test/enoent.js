@@ -1,7 +1,6 @@
 // this test makes sure that various things get enoent, instead of
 // some other kind of throw.
 
-var t = require('tap')
 var g = require('../')
 
 var NODE_VERSION_MAJOR_WITH_BIGINT = 10
@@ -27,6 +26,7 @@ function nodeSupportsBigInt () {
   return false
 }
 
+var t = require('tap')
 var file = 'this file does not exist even a little bit'
 var methods = [
   ['open', 'r'],

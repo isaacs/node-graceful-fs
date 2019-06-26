@@ -1,5 +1,5 @@
-var test = require('tap').test
 var fs = require('../')
+var test = require('tap').test
 
 test('open an existing file works', function (t) {
   var fd = fs.openSync(__filename, 'r')

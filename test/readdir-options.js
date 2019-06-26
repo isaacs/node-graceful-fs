@@ -1,5 +1,5 @@
-var t = require("tap")
 var fs = require("fs")
+var t = require("tap")
 
 var currentTest
 
