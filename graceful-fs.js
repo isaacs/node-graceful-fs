@@ -68,6 +68,7 @@ if (!/\bgraceful-fs\b/.test(fs.closeSync.toString())) {
 function patch (fs) {
   // Everything that references the open() function needs to be in here
   polyfills(fs)
+
   fs.gracefulify = patch
   fs.FileReadStream = ReadStream;  // Legacy name.
   fs.FileWriteStream = WriteStream;  // Legacy name.
@@ -262,7 +263,66 @@ function patch (fs) {
     }
   }
 
+  patchPromises(fs)
+
   return fs
+}
+
+function patchPromises(fs) {
+  var {promisify} = util
+  if (!promisify) {
+    return
+  }
+
+  var promises
+
+  Object.defineProperty(fs, 'promises', {
+    get: function() {
+      if (!promises) {
+        /* This deferred initialization avoids unneeded overhead if fs.promises
+         * is never used.  It also ensures that all source functions are patched
+         * before using util.promisify on them. */
+        var asyncFunctions = [
+          'access',
+          'appendFile',
+          'chmod',
+          'chown',
+          'copyFile',
+          'lchmod',
+          'lchown',
+          'link',
+          'lstat',
+          'mkdir',
+          'mkdtemp',
+          'open',
+          'readFile',
+          'readdir',
+          'readlink',
+          'realpath',
+          'rename',
+          'rmdir',
+          'stat',
+          'symlink',
+          'truncate',
+          'unlink',
+          'utimes',
+          'writeFile'
+        ]
+
+        promises = {}
+
+        asyncFunctions.forEach(fn => {
+          if (typeof fs[fn] === 'function') {
+            promises[fn] = promisify(fs[fn])
+          }
+        })
+      }
+
+      return promises
+    },
+    enumerable: true,
+    configurable: true
+  })
 }
 
 function enqueue (elem) {
