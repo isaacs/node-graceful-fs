@@ -43,11 +43,9 @@
     "node": ">=8"
   },
   "files": [
-    "fs.js",
+    "clone.js",
     "graceful-fs.js",
-    "legacy-streams.js",
-    "polyfills.js",
-    "clone.js"
+    "polyfills.js"
   ],
   "dependencies": {}
 }

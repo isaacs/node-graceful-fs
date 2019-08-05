@@ -1,6 +1,5 @@
 var fs = require('fs')
 var polyfills = require('./polyfills.js')
-var legacy = require('./legacy-streams.js')
 var clone = require('./clone.js')
 
 var util = require('util')
@@ -180,12 +179,6 @@ function patch (fs) {
 
   function go$readdir (args) {
     return fs$readdir.apply(fs, args)
-  }
-
-  if (process.version.substr(0, 4) === 'v0.8') {
-    var legStreams = legacy(fs)
-    ReadStream = legStreams.ReadStream
-    WriteStream = legStreams.WriteStream
   }
 
   var fs$ReadStream = fs.ReadStream
