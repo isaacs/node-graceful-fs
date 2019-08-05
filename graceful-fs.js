@@ -3,9 +3,9 @@ var polyfills = require('./polyfills.js')
 var legacy = require('./legacy-streams.js')
 var clone = require('./clone.js')
 
-var queue = []
-
 var util = require('util')
+
+var gracefulQueue = Symbol.for('graceful-fs.queue')
 
 function noop () {}
 
@@ -19,50 +19,50 @@ else if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || ''))
     console.error(m)
   }
 
-if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
-  process.on('exit', function() {
-    debug(queue)
-    require('assert').equal(queue.length, 0)
+// Once time initialization
+if (!global[gracefulQueue]) {
+  // This queue can be shared by multiple loaded instances
+  var queue = []
+  Object.defineProperty(global, gracefulQueue, {
+    get: function() {
+      return queue
+    }
   })
+
+  // Patch fs.close/closeSync to shared queue version, because we need
+  // to retry() whenever a close happens *anywhere* in the program.
+  // This is essential when multiple graceful-fs instances are
+  // in play at the same time.
+  fs.close = (function (fs$close) { return function (fd, cb) {
+    return fs$close.call(fs, fd, function (err) {
+      // This function uses the graceful-fs shared queue
+      if (!err) {
+        retry()
+      }
+
+      if (typeof cb === 'function')
+        cb.apply(this, arguments)
+    })
+  }})(fs.close)
+
+  fs.closeSync = (function (fs$closeSync) { return function (fd) {
+    // This function uses the graceful-fs shared queue
+    fs$closeSync.apply(fs, arguments)
+    retry()
+  }})(fs.closeSync)
+
+  if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
+    process.on('exit', function() {
+      debug(global[gracefulQueue])
+      require('assert').equal(global[gracefulQueue].length, 0)
+    })
+  }
 }
 
 module.exports = patch(clone(fs))
 if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs.__patched) {
     module.exports = patch(fs)
     fs.__patched = true;
-}
-
-// Always patch fs.close/closeSync, because we want to
-// retry() whenever a close happens *anywhere* in the program.
-// This is essential when multiple graceful-fs instances are
-// in play at the same time.
-module.exports.close = (function (fs$close) { return function (fd, cb) {
-  return fs$close.call(fs, fd, function (err) {
-    if (!err)
-      retry()
-
-    if (typeof cb === 'function')
-      cb.apply(this, arguments)
-  })
-}})(fs.close)
-
-module.exports.closeSync = (function (fs$closeSync) { return function (fd) {
-  // Note that graceful-fs also retries when fs.closeSync() fails.
-  // Looks like a bug to me, although it's probably a harmless one.
-  var rval = fs$closeSync.apply(fs, arguments)
-  retry()
-  return rval
-}})(fs.closeSync)
-
-// Only patch fs once, otherwise we'll run into a memory leak if
-// graceful-fs is loaded multiple times, such as in test environments that
-// reset the loaded modules between tests.
-// We look for the string `graceful-fs` from the comment above. This
-// way we are not adding any extra properties and it will detect if older
-// versions of graceful-fs are installed.
-if (!/\bgraceful-fs\b/.test(fs.closeSync.toString())) {
-  fs.closeSync = module.exports.closeSync;
-  fs.close = module.exports.close;
 }
 
 function patch (fs) {
@@ -267,11 +267,11 @@ function patch (fs) {
 
 function enqueue (elem) {
   debug('ENQUEUE', elem[0].name, elem[1])
-  queue.push(elem)
+  global[gracefulQueue].push(elem)
 }
 
 function retry () {
-  var elem = queue.shift()
+  var elem = global[gracefulQueue].shift()
   if (elem) {
     debug('RETRY', elem[0].name, elem[1])
     elem[0].apply(null, elem[1])
