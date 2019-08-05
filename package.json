@@ -34,10 +34,13 @@
   ],
   "license": "ISC",
   "devDependencies": {
-    "import-fresh": "^2.0.0",
-    "mkdirp": "^0.5.0",
-    "rimraf": "^2.2.8",
-    "tap": "^12.7.0"
+    "import-fresh": "^3.1.0",
+    "mkdirp": "^0.5.1",
+    "rimraf": "^2.6.3",
+    "tap": "^14.6.1"
+  },
+  "engines": {
+    "node": ">=8"
   },
   "files": [
     "fs.js",
