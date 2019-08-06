@@ -1,6 +1,7 @@
 var fs = require('fs')
 var polyfills = require('./polyfills.js')
 var clone = require('./clone.js')
+const normalizeArgs = require('./normalize-args.js')
 
 var util = require('util')
 
@@ -67,6 +68,25 @@ if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs.__patched) {
     fs.__patched = true;
 }
 
+function patchENFILE (origImpl, setupArgs) {
+  function internalImpl (implArgs, cb) {
+    return origImpl(...implArgs, (err, ...args) => {
+      if (err && (err.code === 'EMFILE' || err.code === 'ENFILE')) {
+        enqueue([internalImpl, [implArgs, cb]])
+      } else {
+        cb(err, ...args)
+        retry()
+      }
+    })
+  }
+
+  if (setupArgs) {
+    return (...args) => internalImpl(...setupArgs(...normalizeArgs(args)))
+  }
+
+  return (...args) => internalImpl(...normalizeArgs(args))
+}
+
 function patch (fs) {
   // Everything that references the open() function needs to be in here
   polyfills(fs)
@@ -75,101 +95,21 @@ function patch (fs) {
   fs.FileWriteStream = WriteStream;  // Legacy name.
   fs.createReadStream = createReadStream
   fs.createWriteStream = createWriteStream
-  var fs$readFile = fs.readFile
-  fs.readFile = readFile
-  function readFile (path, options, cb) {
-    if (typeof options === 'function')
-      cb = options, options = null
 
-    return go$readFile(path, options, cb)
-
-    function go$readFile (path, options, cb) {
-      return fs$readFile(path, options, function (err) {
-        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          enqueue([go$readFile, [path, options, cb]])
-        else {
-          if (typeof cb === 'function')
-            cb.apply(this, arguments)
-          retry()
-        }
-      })
-    }
-  }
-
-  var fs$writeFile = fs.writeFile
-  fs.writeFile = writeFile
-  function writeFile (path, data, options, cb) {
-    if (typeof options === 'function')
-      cb = options, options = null
-
-    return go$writeFile(path, data, options, cb)
-
-    function go$writeFile (path, data, options, cb) {
-      return fs$writeFile(path, data, options, function (err) {
-        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          enqueue([go$writeFile, [path, data, options, cb]])
-        else {
-          if (typeof cb === 'function')
-            cb.apply(this, arguments)
-          retry()
-        }
-      })
-    }
-  }
-
-  var fs$appendFile = fs.appendFile
-  if (fs$appendFile)
-    fs.appendFile = appendFile
-  function appendFile (path, data, options, cb) {
-    if (typeof options === 'function')
-      cb = options, options = null
-
-    return go$appendFile(path, data, options, cb)
-
-    function go$appendFile (path, data, options, cb) {
-      return fs$appendFile(path, data, options, function (err) {
-        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          enqueue([go$appendFile, [path, data, options, cb]])
-        else {
-          if (typeof cb === 'function')
-            cb.apply(this, arguments)
-          retry()
-        }
-      })
-    }
-  }
-
-  var fs$readdir = fs.readdir
-  fs.readdir = readdir
-  function readdir (path, options, cb) {
-    var args = [path]
-    if (typeof options !== 'function') {
-      args.push(options)
-    } else {
-      cb = options
-    }
-    args.push(go$readdir$cb)
-
-    return go$readdir(args)
-
-    function go$readdir$cb (err, files) {
-      if (files && files.sort)
-        files.sort()
-
-      if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-        enqueue([go$readdir, [args]])
-
-      else {
-        if (typeof cb === 'function')
-          cb.apply(this, arguments)
-        retry()
+  fs.open = patchENFILE(fs.open)
+  fs.readFile = patchENFILE(fs.readFile)
+  fs.writeFile = patchENFILE(fs.writeFile)
+  fs.appendFile = patchENFILE(fs.appendFile)
+  fs.readdir = patchENFILE(fs.readdir, (args, cb) => [
+    args,
+    (err, files) => {
+      if (files && files.sort) {
+        files = files.sort()
       }
-    }
-  }
 
-  function go$readdir (args) {
-    return fs$readdir.apply(fs, args)
-  }
+      cb(err, files)
+    }
+  ])
 
   var fs$ReadStream = fs.ReadStream
   if (fs$ReadStream) {
@@ -195,7 +135,7 @@ function patch (fs) {
 
   function ReadStream$open () {
     var that = this
-    open(that.path, that.flags, that.mode, function (err, fd) {
+    fs.open(that.path, that.flags, that.mode, function (err, fd) {
       if (err) {
         if (that.autoClose)
           that.destroy()
@@ -218,7 +158,7 @@ function patch (fs) {
 
   function WriteStream$open () {
     var that = this
-    open(that.path, that.flags, that.mode, function (err, fd) {
+    fs.open(that.path, that.flags, that.mode, function (err, fd) {
       if (err) {
         that.destroy()
         that.emit('error', err)
@@ -235,27 +175,6 @@ function patch (fs) {
 
   function createWriteStream (path, options) {
     return new WriteStream(path, options)
-  }
-
-  var fs$open = fs.open
-  fs.open = open
-  function open (path, flags, mode, cb) {
-    if (typeof mode === 'function')
-      cb = mode, mode = null
-
-    return go$open(path, flags, mode, cb)
-
-    function go$open (path, flags, mode, cb) {
-      return fs$open(path, flags, mode, function (err, fd) {
-        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          enqueue([go$open, [path, flags, mode, cb]])
-        else {
-          if (typeof cb === 'function')
-            cb.apply(this, arguments)
-          retry()
-        }
-      })
-    }
   }
 
   return fs

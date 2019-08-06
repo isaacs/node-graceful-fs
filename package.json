@@ -43,8 +43,10 @@
     "node": ">=8"
   },
   "files": [
+    "check-for-callback.js",
     "clone.js",
     "graceful-fs.js",
+    "normalize-args.js",
     "polyfills.js"
   ],
   "dependencies": {}
