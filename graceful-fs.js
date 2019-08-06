@@ -87,14 +87,67 @@ function patchENFILE (origImpl, setupArgs) {
   return (...args) => internalImpl(...normalizeArgs(args))
 }
 
+function patchStream (fs, isRead) {
+  const name = isRead ? 'ReadStream' : 'WriteStream'
+  const origImpl = fs[name]
+
+  function PatchedStream (...args) {
+    if (this instanceof PatchedStream) {
+      origImpl.apply(this, args)
+      return this
+    }
+
+    return new PatchedStream(...args)
+  }
+
+  PatchedStream.prototype = Object.create(origImpl.prototype)
+  PatchedStream.prototype.open = PatchedStream$open
+
+  function PatchedStream$open () {
+    fs.open(this.path, this.flags, this.mode, (err, fd) => {
+      if (err) {
+        if (this.autoClose) {
+          this.destroy()
+        }
+
+        this.emit('error', err)
+      } else {
+        this.fd = fd
+        this.emit('open', fd)
+        if (isRead) {
+          this.read()
+        }
+      }
+    })
+  }
+
+  let Klass = PatchedStream
+
+  fs[`create${name}`] = (...args) => new Klass(...args)
+
+  Object.defineProperties(fs, {
+    [name]: {
+      get () {
+        return Klass
+      },
+      set (value) {
+        Klass = value
+      },
+      enumerable: true
+    },
+    // Legacy name
+    [`File${name}`]: {
+      value: PatchedStream,
+      writable: true,
+      enumerable: true
+    }
+  })
+}
+
 function patch (fs) {
   // Everything that references the open() function needs to be in here
   polyfills(fs)
   fs.gracefulify = patch
-  fs.FileReadStream = ReadStream;  // Legacy name.
-  fs.FileWriteStream = WriteStream;  // Legacy name.
-  fs.createReadStream = createReadStream
-  fs.createWriteStream = createWriteStream
 
   fs.open = patchENFILE(fs.open)
   fs.readFile = patchENFILE(fs.readFile)
@@ -111,71 +164,8 @@ function patch (fs) {
     }
   ])
 
-  var fs$ReadStream = fs.ReadStream
-  if (fs$ReadStream) {
-    ReadStream.prototype = Object.create(fs$ReadStream.prototype)
-    ReadStream.prototype.open = ReadStream$open
-  }
-
-  var fs$WriteStream = fs.WriteStream
-  if (fs$WriteStream) {
-    WriteStream.prototype = Object.create(fs$WriteStream.prototype)
-    WriteStream.prototype.open = WriteStream$open
-  }
-
-  fs.ReadStream = ReadStream
-  fs.WriteStream = WriteStream
-
-  function ReadStream (path, options) {
-    if (this instanceof ReadStream)
-      return fs$ReadStream.apply(this, arguments), this
-    else
-      return ReadStream.apply(Object.create(ReadStream.prototype), arguments)
-  }
-
-  function ReadStream$open () {
-    var that = this
-    fs.open(that.path, that.flags, that.mode, function (err, fd) {
-      if (err) {
-        if (that.autoClose)
-          that.destroy()
-
-        that.emit('error', err)
-      } else {
-        that.fd = fd
-        that.emit('open', fd)
-        that.read()
-      }
-    })
-  }
-
-  function WriteStream (path, options) {
-    if (this instanceof WriteStream)
-      return fs$WriteStream.apply(this, arguments), this
-    else
-      return WriteStream.apply(Object.create(WriteStream.prototype), arguments)
-  }
-
-  function WriteStream$open () {
-    var that = this
-    fs.open(that.path, that.flags, that.mode, function (err, fd) {
-      if (err) {
-        that.destroy()
-        that.emit('error', err)
-      } else {
-        that.fd = fd
-        that.emit('open', fd)
-      }
-    })
-  }
-
-  function createReadStream (path, options) {
-    return new ReadStream(path, options)
-  }
-
-  function createWriteStream (path, options) {
-    return new WriteStream(path, options)
-  }
+  patchStream(fs, true)
+  patchStream(fs, false)
 
   return fs
 }
