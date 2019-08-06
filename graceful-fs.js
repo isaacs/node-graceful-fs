@@ -1,20 +1,22 @@
-var fs = require('fs')
-var polyfills = require('./polyfills.js')
-var clone = require('./clone.js')
+'use strict'
+
+const fs = require('fs')
+const util = require('util')
+
+const polyfills = require('./polyfills.js')
+const clone = require('./clone.js')
 const normalizeArgs = require('./normalize-args.js')
 
-var util = require('util')
-
-var gracefulQueue = Symbol.for('graceful-fs.queue')
-
 const debug = util.debuglog('gfs4')
+
+const gracefulQueue = Symbol.for('graceful-fs.queue')
 
 // Once time initialization
 if (!global[gracefulQueue]) {
   // This queue can be shared by multiple loaded instances
-  var queue = []
+  const queue = []
   Object.defineProperty(global, gracefulQueue, {
-    get: function() {
+    get () {
       return queue
     }
   })
@@ -26,38 +28,32 @@ if (!global[gracefulQueue]) {
   // to retry() whenever a close happens *anywhere* in the program.
   // This is essential when multiple graceful-fs instances are
   // in play at the same time.
-  fs.close = (function (fs$close) {
-    function close (fd, cb) {
-      return fs$close.call(fs, fd, function (err) {
-        // This function uses the graceful-fs shared queue
-        if (!err) {
-          retry()
-        }
+  const {close, closeSync} = fs
+  fs.close = (fd, cb) => {
+    cb = normalizeArgs([cb])[1]
 
-        if (typeof cb === 'function')
-          cb.apply(this, arguments)
-      })
-    }
-
-    close[previous] = fs$close
-    return close
-  })(fs.close)
-
-  fs.closeSync = (function (fs$closeSync) {
-    function closeSync (fd) {
+    close(fd, err => {
       // This function uses the graceful-fs shared queue
-      fs$closeSync.apply(fs, arguments)
-      retry()
-    }
+      if (!err) {
+        retry()
+      }
 
-    closeSync[previous] = fs$closeSync
-    return closeSync
-  })(fs.closeSync)
+      cb(err)
+    })
+  }
+  fs.close[previous] = close
+
+  fs.closeSync = fd => {
+    // This function uses the graceful-fs shared queue
+    closeSync(fd)
+    retry()
+  }
+  fs.closeSync[previous] = closeSync
 
   if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
-    process.on('exit', function() {
+    process.on('exit', () => {
       debug(global[gracefulQueue])
-      require('assert').equal(global[gracefulQueue].length, 0)
+      require('assert').strictEqual(global[gracefulQueue].length, 0)
     })
   }
 }
@@ -176,9 +172,9 @@ function enqueue (elem) {
 }
 
 function retry () {
-  var elem = global[gracefulQueue].shift()
+  const elem = global[gracefulQueue].shift()
   if (elem) {
     debug('RETRY', elem[0].name, elem[1])
-    elem[0].apply(null, elem[1])
+    elem[0](...elem[1])
   }
 }
