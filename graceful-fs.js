@@ -6,17 +6,7 @@ var util = require('util')
 
 var gracefulQueue = Symbol.for('graceful-fs.queue')
 
-function noop () {}
-
-var debug = noop
-if (util.debuglog)
-  debug = util.debuglog('gfs4')
-else if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || ''))
-  debug = function() {
-    var m = util.format.apply(util, arguments)
-    m = 'GFS4: ' + m.split(/\n/).join('\nGFS4: ')
-    console.error(m)
-  }
+const debug = util.debuglog('gfs4')
 
 // Once time initialization
 if (!global[gracefulQueue]) {
