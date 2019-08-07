@@ -8,7 +8,7 @@ var env = Object.keys(process.env).reduce(function (env, k) {
   env[k] = process.env[k]
   return env
 }, {
-  TEST_GRACEFUL_FS_GLOBAL_PATCH: 1
+  TEST_GFS_GLOBAL_PATCH: '1'
 })
 
 files.filter(function (f) {

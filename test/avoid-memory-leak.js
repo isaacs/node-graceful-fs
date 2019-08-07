@@ -1,3 +1,4 @@
+var path = require('path')
 var importFresh = require('import-fresh');
 var t = require('tap')
 var v8
@@ -21,13 +22,20 @@ function checkHeap (t) {
 }
 
 t.test('no memory leak when loading multiple times', function(t) {
+  const gfsPath = path.resolve(__dirname, '../graceful-fs.js')
+  const gfsHelper = path.join(__dirname, './helpers/graceful-fs.js')
+  importFresh(gfsHelper)
+
   t.plan(1);
-  importFresh(process.cwd() + '/graceful-fs.js') // node 0.10-5 were getting: Cannot find module '../'
   previousHeapStats = process.memoryUsage()
   // simulate project with 4000 tests
   var i = 0;
   function importFreshGracefulFs() {
-    importFresh(process.cwd() + '/graceful-fs.js');
+    delete require.cache[gfsPath]
+    // We have to use absolute path because importFresh cannot find
+    // relative paths when run from the callback of `process.nextTick`.
+    importFresh(gfsHelper)
+
     if (i < 4000) {
       i++;
       process.nextTick(() => importFreshGracefulFs());

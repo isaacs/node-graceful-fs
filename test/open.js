@@ -1,4 +1,4 @@
-var fs = require('../')
+var fs = require('./helpers/graceful-fs.js')
 var test = require('tap').test
 
 test('open an existing file works', function (t) {

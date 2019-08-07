@@ -9,7 +9,7 @@ fs.rename = function (a, b, cb) {
   })
 }
 
-var gfs = require('../')
+var gfs = require('./helpers/graceful-fs.js')
 var t = require('tap')
 var a = __dirname + '/a'
 var b = __dirname + '/b'

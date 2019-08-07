@@ -1,4 +1,4 @@
-var fs = require('../');
+var fs = require('./helpers/graceful-fs.js');
 var rimraf = require('rimraf');
 var mkdirp = require('mkdirp');
 var test = require('tap').test;

@@ -1,7 +1,7 @@
 // this test makes sure that various things get enoent, instead of
 // some other kind of throw.
 
-var g = require('../')
+var g = require('./helpers/graceful-fs.js')
 var t = require('tap')
 var file = 'this file does not exist even a little bit'
 var methods = [

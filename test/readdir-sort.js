@@ -7,7 +7,7 @@ fs.readdir = function(path, cb) {
   })
 }
 
-var g = require("../")
+var g = require('./helpers/graceful-fs.js')
 var test = require("tap").test
 
 test("readdir reorder", function (t) {

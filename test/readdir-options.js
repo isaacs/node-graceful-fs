@@ -45,7 +45,7 @@ fs.readdir = function(path, options, cb) {
   })
 }
 
-var g = require("../")
+var g = require('./helpers/graceful-fs.js')
 
 var encodings = ['buffer', 'hex', 'utf8', null]
 encodings.forEach(function (enc) {

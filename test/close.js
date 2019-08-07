@@ -1,11 +1,12 @@
 var fs = require('fs')
 var path = require('path')
-var gfsPath = path.resolve(__dirname, '..', 'graceful-fs.js')
-var gfs = require(gfsPath)
+var gfs = require('./helpers/graceful-fs.js')
 var importFresh = require('import-fresh')
 var fs$close = fs.close
 var fs$closeSync = fs.closeSync
 var test = require('tap').test
+
+var gfsPath = path.resolve(__dirname, '..', 'graceful-fs.js')
 
 test('`close` is patched correctly', function(t) {
   t.match(fs$close.toString(), /graceful-fs shared queue/, 'patch fs.close');

@@ -9,6 +9,7 @@ const normalizeArgs = require('./normalize-args.js')
 
 const debug = util.debuglog('gfs4')
 
+const gracefulPatched = Symbol.for('graceful-fs.patched')
 const gracefulQueue = Symbol.for('graceful-fs.queue')
 
 // Once time initialization
@@ -59,10 +60,6 @@ if (!global[gracefulQueue]) {
 }
 
 module.exports = patch(clone(fs))
-if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs.__patched) {
-    module.exports = patch(fs)
-    fs.__patched = true;
-}
 
 function patchENFILE (origImpl, setupArgs) {
   function internalImpl (implArgs, cb) {
@@ -141,6 +138,14 @@ function patchStream (fs, isRead) {
 }
 
 function patch (fs) {
+  if (fs[gracefulPatched]) {
+    return fs
+  }
+
+  Object.defineProperty(fs, gracefulPatched, {
+    value: true
+  })
+
   // Everything that references the open() function needs to be in here
   polyfills(fs)
   fs.gracefulify = patch

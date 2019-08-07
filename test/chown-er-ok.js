@@ -24,7 +24,7 @@ function makeErr (path, method) {
   return err
 }
 
-var fs = require('../')
+var fs = require('./helpers/graceful-fs.js')
 var t = require('tap')
 
 var errs = ['ENOSYS', 'EINVAL', 'EPERM']
