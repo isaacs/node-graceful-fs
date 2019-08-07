@@ -46,6 +46,7 @@
     "check-for-callback.js",
     "clone.js",
     "graceful-fs.js",
+    "noop.js",
     "normalize-args.js",
     "polyfills.js",
     "windows-rename-polyfill.js"

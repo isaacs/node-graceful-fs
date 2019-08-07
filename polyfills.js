@@ -1,6 +1,7 @@
 var constants = require('constants')
 const checkForCallback = require('./check-for-callback.js')
 const normalizeArgs = require('./normalize-args.js')
+const {noop, noopSync} = require('./noop.js')
 
 var origCwd = process.cwd
 var cwd = null
@@ -53,16 +54,13 @@ function patch (fs) {
 
   // if lchmod/lchown do not exist, then make them no-ops
   if (!fs.lchmod) {
-    fs.lchmod = function (path, mode, cb) {
-      if (cb) process.nextTick(cb)
-    }
-    fs.lchmodSync = function () {}
+    fs.lchmod = noop
+    fs.lchmodSync = noopSync
   }
+
   if (!fs.lchown) {
-    fs.lchown = function (path, uid, gid, cb) {
-      if (cb) process.nextTick(cb)
-    }
-    fs.lchownSync = function () {}
+    fs.lchown = noop
+    fs.lchownSync = noopSync
   }
 
   // on Windows, A/V software can lock the directory, causing this
@@ -149,8 +147,8 @@ function patch (fs) {
       }
 
     } else {
-      fs.lutimes = function (_a, _b, _c, cb) { if (cb) process.nextTick(cb) }
-      fs.lutimesSync = function () {}
+      fs.lutimes = noop
+      fs.lutimesSync = noopSync
     }
   }
 
