@@ -37,21 +37,21 @@ function patch (fs) {
   // It should not fail on enosys ever, as this just indicates
   // that a fs doesn't support the intended operation.
 
-  fs.chown = chownFix(fs.chown)
-  fs.fchown = chownFix(fs.fchown)
-  fs.lchown = chownFix(fs.lchown)
+  fs.chown = patchChownErFilter(fs.chown)
+  fs.fchown = patchChownErFilter(fs.fchown)
+  fs.lchown = patchChownErFilter(fs.lchown)
 
-  fs.chmod = chmodFix(fs.chmod)
-  fs.fchmod = chmodFix(fs.fchmod)
-  fs.lchmod = chmodFix(fs.lchmod)
+  fs.chmod = patchChownErFilter(fs.chmod)
+  fs.fchmod = patchChownErFilter(fs.fchmod)
+  fs.lchmod = patchChownErFilter(fs.lchmod)
 
-  fs.chownSync = chownFixSync(fs.chownSync)
-  fs.fchownSync = chownFixSync(fs.fchownSync)
-  fs.lchownSync = chownFixSync(fs.lchownSync)
+  fs.chownSync = patchChownSyncErFilter(fs.chownSync)
+  fs.fchownSync = patchChownSyncErFilter(fs.fchownSync)
+  fs.lchownSync = patchChownSyncErFilter(fs.lchownSync)
 
-  fs.chmodSync = chmodFixSync(fs.chmodSync)
-  fs.fchmodSync = chmodFixSync(fs.fchmodSync)
-  fs.lchmodSync = chmodFixSync(fs.lchmodSync)
+  fs.chmodSync = patchChownSyncErFilter(fs.chmodSync)
+  fs.fchmodSync = patchChownSyncErFilter(fs.fchmodSync)
+  fs.lchmodSync = patchChownSyncErFilter(fs.lchmodSync)
 
   // if lchmod/lchown do not exist, then make them no-ops
   if (!fs.lchmod) {
@@ -185,45 +185,29 @@ function patch (fs) {
     }
   }
 
-  function chmodFix (orig) {
-    if (!orig) return orig
-    return function (target, mode, cb) {
-      return orig.call(fs, target, mode, function (er) {
-        if (chownErOk(er)) er = null
-        if (cb) cb.apply(this, arguments)
-      })
+  function patchChownErFilter (orig) {
+    if (!orig) {
+      return orig
+    }
+
+    return (...userArgs) => {
+      const [args, cb] = normalizeArgs(userArgs)
+      return orig(...args, (er, ...cbArgs) => cb(chownErFilter(er), ...cbArgs))
     }
   }
 
-  function chmodFixSync (orig) {
-    if (!orig) return orig
-    return function (target, mode) {
+  function patchChownSyncErFilter (orig) {
+    if (!orig) {
+      return orig
+    }
+
+    return (...args) => {
       try {
-        return orig.call(fs, target, mode)
+        return orig(...args)
       } catch (er) {
-        if (!chownErOk(er)) throw er
-      }
-    }
-  }
-
-
-  function chownFix (orig) {
-    if (!orig) return orig
-    return function (target, uid, gid, cb) {
-      return orig.call(fs, target, uid, gid, function (er) {
-        if (chownErOk(er)) er = null
-        if (cb) cb.apply(this, arguments)
-      })
-    }
-  }
-
-  function chownFixSync (orig) {
-    if (!orig) return orig
-    return function (target, uid, gid) {
-      try {
-        return orig.call(fs, target, uid, gid)
-      } catch (er) {
-        if (!chownErOk(er)) throw er
+        if (chownErFilter(er)) {
+          throw er
+        }
       }
     }
   }
@@ -240,19 +224,16 @@ function patch (fs) {
   //
   // When running as root, or if other types of errors are
   // encountered, then it's strict.
-  function chownErOk (er) {
-    if (!er)
-      return true
-
-    if (er.code === "ENOSYS")
-      return true
-
-    var nonroot = !process.getuid || process.getuid() !== 0
-    if (nonroot) {
-      if (er.code === "EINVAL" || er.code === "EPERM")
-        return true
+  function chownErFilter (er) {
+    if (!er || er.code === 'ENOSYS') {
+      return
     }
 
-    return false
+    const nonroot = !process.getuid || process.getuid() !== 0
+    if (nonroot && (er.code === 'EINVAL' || er.code === 'EPERM')) {
+      return
+    }
+
+    return er
   }
 }
