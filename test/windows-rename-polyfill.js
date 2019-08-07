@@ -1,30 +1,50 @@
-process.env.GRACEFUL_FS_PLATFORM = 'win32'
+'use strict'
 
-var fs = require('fs')
-fs.rename = function (a, b, cb) {
-  setTimeout(function () {
-    var er = new Error('EPERM blerg')
-    er.code = 'EPERM'
-    cb(er)
-  })
+const path = require('path')
+const fs = require('fs')
+const windowsRenamePolyfill = require('../windows-rename-polyfill.js')
+
+function createPolyfilledObject(code) {
+  const pfs = {
+    stat: fs.stat,
+    rename(a, b, cb) {
+      /* original rename */
+      cb(Object.assign(new Error(code), {code}))
+    }
+  }
+
+  windowsRenamePolyfill(pfs)
+
+  return pfs
 }
 
-var gfs = require('./helpers/graceful-fs.js')
-var t = require('tap')
-var a = __dirname + '/a'
-var b = __dirname + '/b'
+const t = require('tap')
+const a = path.join(__dirname, 'a')
+const b = path.join(__dirname, 'b')
+const c = path.join(__dirname, 'c')
 
-t.test('setup', function (t) {
-  try { fs.mkdirSync(a) } catch (e) {}
-  try { fs.mkdirSync(b) } catch (e) {}
+t.test('setup', t => {
+  const pfs = createPolyfilledObject('EPERM')
+  t.notMatch(pfs.rename.toString(), /original rename/)
+
+  try {
+    fs.mkdirSync(a)
+  } catch (e) {}
+
+  try {
+    fs.mkdirSync(b)
+  } catch (e) {}
+
   t.end()
 })
 
-t.test('rename', { timeout: 100 }, function (t) {
-  t.plan(1)
+t.test('rename EPERM', { timeout: 100 }, t => {
+  t.plan(2)
 
-  gfs.rename(a, b, function (er) {
+  const pfs = createPolyfilledObject('EPERM')
+  pfs.rename(a, b, er => {
     t.ok(er)
+    t.is(er.code, 'EPERM')
   })
 })
 

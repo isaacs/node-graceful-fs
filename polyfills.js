@@ -5,8 +5,6 @@ const normalizeArgs = require('./normalize-args.js')
 var origCwd = process.cwd
 var cwd = null
 
-var platform = process.env.GRACEFUL_FS_PLATFORM || process.platform
-
 process.cwd = function() {
   if (!cwd)
     cwd = origCwd.call(process)
@@ -76,37 +74,8 @@ function patch (fs) {
   // failures. Also, take care to yield the scheduler. Windows scheduling gives
   // CPU to a busy looping process, which can cause the program causing the lock
   // contention to be starved of CPU by node, so the contention doesn't resolve.
-  if (platform === "win32") {
-    const accessErrors = new Set(['EACCES', 'EPERM'])
-    const {rename} = fs
-
-    fs.rename = (from, to, cb) => {
-      const start = Date.now()
-      let backoff = 0
-      cb = normalizeArgs([cb])[1]
-
-      rename(from, to, function CB (er) {
-        if (er && accessErrors.has(er.code) && Date.now() - start < 60000) {
-          setTimeout(() => {
-            fs.stat(to, stater => {
-              if (stater && stater.code === 'ENOENT') {
-                rename(from, to, CB)
-              } else {
-                cb(er)
-              }
-            })
-          }, backoff)
-
-          if (backoff < 100) {
-            backoff += 10
-          }
-
-          return
-        }
-
-        cb(er)
-      })
-    }
+  if (process.platform === 'win32') {
+    require('./windows-rename-polyfill.js')(fs)
   }
 
   const {read, readSync} = fs

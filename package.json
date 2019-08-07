@@ -47,7 +47,8 @@
     "clone.js",
     "graceful-fs.js",
     "normalize-args.js",
-    "polyfills.js"
+    "polyfills.js",
+    "windows-rename-polyfill.js"
   ],
   "dependencies": {}
 }
