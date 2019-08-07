@@ -1,4 +1,5 @@
 var constants = require('constants')
+const checkForCallback = require('./check-for-callback.js')
 const normalizeArgs = require('./normalize-args.js')
 
 var origCwd = process.cwd
@@ -108,42 +109,40 @@ function patch (fs) {
     }
   }
 
+  const {read, readSync} = fs
   // if read() returns EAGAIN, then just try it again.
-  fs.read = (function (fs$read) {
-    function read (fd, buffer, offset, length, position, callback_) {
-      var callback
-      if (callback_ && typeof callback_ === 'function') {
-        var eagCounter = 0
-        callback = function (er, _, __) {
-          if (er && er.code === 'EAGAIN' && eagCounter < 10) {
-            eagCounter ++
-            return fs$read.call(fs, fd, buffer, offset, length, position, callback)
-          }
-          callback_.apply(this, arguments)
-        }
+  fs.read = (fd, buffer, offset, length, position, cb) => {
+    checkForCallback(cb)
+
+    let eagCounter = 0
+    read(fd, buffer, offset, length, position, function CB (er, ...args) {
+      if (er && er.code === 'EAGAIN' && eagCounter < 10) {
+        eagCounter ++
+        read(fd, buffer, offset, length, position, CB)
+        return
       }
-      return fs$read.call(fs, fd, buffer, offset, length, position, callback)
-    }
 
-    // This ensures `util.promisify` works as it does for native `fs.read`.
-    read.__proto__ = fs$read
-    return read
-  })(fs.read)
+      cb(er, ...args)
+    })
+  }
+  // This ensures `util.promisify` works as it does for native `fs.read`.
+  Object.setPrototypeOf(fs.read, read)
 
-  fs.readSync = (function (fs$readSync) { return function (fd, buffer, offset, length, position) {
-    var eagCounter = 0
+  fs.readSync = (...args) => {
+    let eagCounter = 0
     while (true) {
       try {
-        return fs$readSync.call(fs, fd, buffer, offset, length, position)
+        return readSync(...args)
       } catch (er) {
         if (er.code === 'EAGAIN' && eagCounter < 10) {
           eagCounter ++
           continue
         }
+
         throw er
       }
     }
-  }})(fs.readSync)
+  }
 
   function patchLutimes (fs) {
     if (constants.hasOwnProperty("O_SYMLINK")) {
