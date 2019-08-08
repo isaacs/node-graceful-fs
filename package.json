@@ -14,7 +14,8 @@
     "preversion": "npm test",
     "postversion": "npm publish",
     "postpublish": "git push origin --follow-tags",
-    "test": "node test.js | tap -"
+    "test": "nyc -r none node test.js | tap -",
+    "posttest": "nyc report -r text"
   },
   "keywords": [
     "fs",
@@ -34,8 +35,10 @@
   ],
   "license": "ISC",
   "devDependencies": {
+    "glob": "^7.1.4",
     "import-fresh": "^3.1.0",
     "mkdirp": "^0.5.1",
+    "nyc": "^14.1.1",
     "rimraf": "^2.6.3",
     "tap": "^14.6.1"
   },
