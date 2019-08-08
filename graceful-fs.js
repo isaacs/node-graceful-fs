@@ -6,7 +6,6 @@ var clone = require('./clone.js')
 var util = require('util')
 
 var gracefulQueue = Symbol.for('graceful-fs.queue')
-var gracefulResetQueue = Symbol.for('graceful-fs.reset-queue')
 
 function noop () {}
 
@@ -21,27 +20,17 @@ else if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || ''))
   }
 
 // Once time initialization
-if (!global[gracefulQueue] || global[gracefulResetQueue]) {
-  global[gracefulResetQueue] = false
+if (!global[gracefulQueue]) {
+  // This queue can be shared by multiple loaded instances
+  var queue = []
+  Object.defineProperty(global, gracefulQueue, {
+    get: function() {
+      return queue
+    }
+  })
 
-  if (!global[gracefulQueue]) {
-    // This queue can be shared by multiple loaded instances
-    var queue = []
-    Object.defineProperty(global, gracefulQueue, {
-      get: function() {
-        return queue
-      }
-    })
-  }
-
+  // This is used in testing by future versions
   var previous = Symbol.for('graceful-fs.previous')
-  if (fs.close[previous]) {
-    fs.close = fs.close[previous]
-  }
-
-  if (fs.closeSync[previous]) {
-    fs.closeSync = fs.closeSync[previous]
-  }
 
   // Patch fs.close/closeSync to shared queue version, because we need
   // to retry() whenever a close happens *anywhere* in the program.
