@@ -11,16 +11,33 @@ const debug = util.debuglog('gfs4')
 
 const gracefulPatched = Symbol.for('graceful-fs.patched')
 const gracefulQueue = Symbol.for('graceful-fs.queue')
+const gracefulResetQueue = Symbol.for('graceful-fs.reset-queue')
 
 // Once time initialization
-if (!global[gracefulQueue]) {
-  // This queue can be shared by multiple loaded instances
-  const queue = []
-  Object.defineProperty(global, gracefulQueue, {
-    get () {
-      return queue
-    }
-  })
+if (!global[gracefulQueue] || global[gracefulResetQueue]) {
+  delete global[gracefulResetQueue]
+
+  /* istanbul ignore next: nyc already created this variable, this is untestable */
+  if (!global[gracefulQueue]) {
+    // This queue can be shared by multiple loaded instances
+    const queue = []
+    Object.defineProperty(global, gracefulQueue, {
+      get () {
+        return queue
+      }
+    })
+  }
+
+  const previous = Symbol.for('graceful-fs.previous')
+  /* istanbul ignore else: this is always true when running under nyc */
+  if (fs.close[previous]) {
+    fs.close = fs.close[previous]
+  }
+
+  /* istanbul ignore else: this is always true when running under nyc */
+  if (fs.closeSync[previous]) {
+    fs.closeSync = fs.closeSync[previous]
+  }
 
   // This is used in testing by future versions
   var previous = Symbol.for('graceful-fs.previous')
