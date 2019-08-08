@@ -6,6 +6,7 @@ var clone = require('./clone.js')
 var util = require('util')
 
 var gracefulQueue = Symbol.for('graceful-fs.queue')
+var gracefulResetQueue = Symbol.for('graceful-fs.reset-queue')
 
 function noop () {}
 
@@ -20,36 +21,59 @@ else if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || ''))
   }
 
 // Once time initialization
-if (!global[gracefulQueue]) {
-  // This queue can be shared by multiple loaded instances
-  var queue = []
-  Object.defineProperty(global, gracefulQueue, {
-    get: function() {
-      return queue
-    }
-  })
+if (!global[gracefulQueue] || global[gracefulResetQueue]) {
+  global[gracefulResetQueue] = false
+
+  if (!global[gracefulQueue]) {
+    // This queue can be shared by multiple loaded instances
+    var queue = []
+    Object.defineProperty(global, gracefulQueue, {
+      get: function() {
+        return queue
+      }
+    })
+  }
+
+  var previous = Symbol.for('graceful-fs.previous')
+  if (fs.close[previous]) {
+    fs.close = fs.close[previous]
+  }
+
+  if (fs.closeSync[previous]) {
+    fs.closeSync = fs.closeSync[previous]
+  }
 
   // Patch fs.close/closeSync to shared queue version, because we need
   // to retry() whenever a close happens *anywhere* in the program.
   // This is essential when multiple graceful-fs instances are
   // in play at the same time.
-  fs.close = (function (fs$close) { return function (fd, cb) {
-    return fs$close.call(fs, fd, function (err) {
+  fs.close = (function (fs$close) {
+    function close (fd, cb) {
+      return fs$close.call(fs, fd, function (err) {
+        // This function uses the graceful-fs shared queue
+        if (!err) {
+          retry()
+        }
+
+        if (typeof cb === 'function')
+          cb.apply(this, arguments)
+      })
+    }
+
+    close[previous] = fs$close
+    return close
+  })(fs.close)
+
+  fs.closeSync = (function (fs$closeSync) {
+    function closeSync (fd) {
       // This function uses the graceful-fs shared queue
-      if (!err) {
-        retry()
-      }
+      fs$closeSync.apply(fs, arguments)
+      retry()
+    }
 
-      if (typeof cb === 'function')
-        cb.apply(this, arguments)
-    })
-  }})(fs.close)
-
-  fs.closeSync = (function (fs$closeSync) { return function (fd) {
-    // This function uses the graceful-fs shared queue
-    fs$closeSync.apply(fs, arguments)
-    retry()
-  }})(fs.closeSync)
+    closeSync[previous] = fs$closeSync
+    return closeSync
+  })(fs.closeSync)
 
   if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
     process.on('exit', function() {
