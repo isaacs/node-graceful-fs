@@ -1,11 +1,13 @@
-var fs = require("fs")
-var t = require("tap")
+'use strict'
 
-var currentTest
+const fs = require('fs')
+const t = require('tap')
 
-var strings = ['b', 'z', 'a']
-var buffs = strings.map(function (s) { return Buffer.from(s) })
-var hexes = buffs.map(function (b) { return b.toString('hex') })
+let currentTest
+
+const strings = ['b', 'z', 'a']
+const buffs = strings.map(s => Buffer.from(s))
+const hexes = buffs.map(b => b.toString('hex'))
 
 function getRet (encoding) {
   switch (encoding) {
@@ -18,17 +20,14 @@ function getRet (encoding) {
   }
 }
 
-var readdir = fs.readdir
-var failed = false
-fs.readdir = function(path, options, cb) {
+let failed = false
+fs.readdir = (path, options, cb) => {
   if (!failed) {
     // simulate an EMFILE and then open and close a thing to retry
     failed = true
-    process.nextTick(function () {
-      var er = new Error('synthetic emfile')
-      er.code = 'EMFILE'
-      cb(er)
-      process.nextTick(function () {
+    process.nextTick(() => {
+      cb(Object.assign(new Error('synthetic emfile'), {code: 'EMFILE'}))
+      process.nextTick(() => {
         g.closeSync(fs.openSync(__filename, 'r'))
       })
     })
@@ -39,22 +38,20 @@ fs.readdir = function(path, options, cb) {
   currentTest.isa(cb, 'function')
   currentTest.isa(options, 'object')
   currentTest.ok(options)
-  process.nextTick(function() {
-    var ret = getRet(options.encoding)
-    cb(null, ret)
+  process.nextTick(() => {
+    cb(null, getRet(options.encoding))
   })
 }
 
-var g = require('./helpers/graceful-fs.js')
+const g = require('./helpers/graceful-fs.js')
 
-var encodings = ['buffer', 'hex', 'utf8', null]
-encodings.forEach(function (enc) {
-  t.test('encoding=' + enc, function (t) {
+const encodings = ['buffer', 'hex', 'utf8', null]
+encodings.forEach(encoding => {
+  t.test('encoding=' + encoding, t => {
     currentTest = t
-    g.readdir("whatevers", { encoding: enc }, function (er, files) {
-      if (er)
-        throw er
-      t.same(files, getRet(enc).sort())
+    g.readdir('whatevers', {encoding}, (er, files) => {
+      t.error(er)
+      t.same(files, getRet(encoding).sort())
       t.end()
     })
   })

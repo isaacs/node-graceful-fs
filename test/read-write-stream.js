@@ -1,27 +1,24 @@
 'use strict'
 
-var fs = require('./helpers/graceful-fs.js')
-var rimraf = require('rimraf')
-var mkdirp = require('mkdirp')
-var test = require('tap').test
-var path = require('path')
-var p = path.resolve(__dirname, 'files')
+const path = require('path')
+const fs = require('./helpers/graceful-fs.js')
+const rimraf = require('rimraf')
+const mkdirp = require('mkdirp')
+const {test} = require('tap')
 
-process.chdir(__dirname)
+const p = path.resolve(__dirname, 'files-read-write-stream')
 
 // Make sure to reserve the stderr fd
 process.stderr.write('')
 
-var num = 4097
-var paths = new Array(num)
+const paths = new Array(4097).fill().map((_, i) => `${p}/file-${i}`)
 
-test('write files', function (t) {
+test('write files', t => {
   rimraf.sync(p)
   mkdirp.sync(p)
 
-  t.plan(num * 2)
-  for (var i = 0; i < num; ++i) {
-    paths[i] = 'files/file-' + i
+  t.plan(paths.length * 2)
+  for (const i in paths) {
     let stream
     switch (i % 3) {
       case 0:
@@ -34,19 +31,18 @@ test('write files', function (t) {
         stream = new fs.WriteStream(paths[i])
         break
     }
+
     t.type(stream, fs.WriteStream)
-    stream.on('finish', function () {
-      t.pass('success')
-    })
+    stream.on('finish', () => t.pass('success'))
     stream.write('content')
     stream.end()
   }
 })
 
-test('read files', function (t) {
+test('read files', t => {
   // now read them
-  t.plan(num * 2)
-  for (var i = 0; i < num; ++i) (function (i) {
+  t.plan(paths.length * 2)
+  for (const i in paths) {
     let stream
     switch (i % 3) {
       case 0:
@@ -59,18 +55,17 @@ test('read files', function (t) {
         stream = new fs.ReadStream(paths[i])
         break
     }
+
     t.type(stream, fs.ReadStream)
-    var data = ''
-    stream.on('data', function (c) {
+    let data = ''
+    stream.on('data', c => {
       data += c
     })
-    stream.on('end', function () {
-      t.equal(data, 'content')
-    })
-  })(i)
+    stream.on('end', () => t.equal(data, 'content'))
+  }
 })
 
-function streamErrors(t, read, autoClose) {
+function streamErrors (t, read, autoClose) {
   const events = []
   const initializer = read ? 'createReadStream' : 'createWriteStream'
   const stream = fs[initializer](
@@ -79,7 +74,7 @@ function streamErrors(t, read, autoClose) {
   )
   const matchDestroy = autoClose ? ['destroy'] : ['error', 'destroy']
   const matchError = autoClose ? ['destroy', 'error'] : ['error']
-  const destroy = stream.destroy
+  const {destroy} = stream
   stream.destroy = () => {
     events.push('destroy')
     t.deepEqual(events, matchDestroy, 'got destroy')
@@ -107,7 +102,7 @@ test('ReadStream replacement', t => {
   let called = 0
 
   class FakeReplacement {
-    constructor(...args) {
+    constructor (...args) {
       t.deepEqual(args, testArgs)
       called++
     }
@@ -127,7 +122,7 @@ test('WriteStream replacement', t => {
   let called = 0
 
   class FakeReplacement {
-    constructor(...args) {
+    constructor (...args) {
       t.deepEqual(args, testArgs)
       called++
     }
@@ -142,7 +137,7 @@ test('WriteStream replacement', t => {
   t.end()
 })
 
-test('cleanup', function (t) {
+test('cleanup', t => {
   rimraf.sync(p)
   t.end()
 })

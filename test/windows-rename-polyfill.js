@@ -4,10 +4,10 @@ const path = require('path')
 const fs = require('fs')
 const windowsRenamePolyfill = require('../windows-rename-polyfill.js')
 
-function createPolyfilledObject(code) {
+function createPolyfilledObject (code) {
   const pfs = {
     stat: fs.stat,
-    rename(a, b, cb) {
+    rename (a, b, cb) {
       /* original rename */
       cb(Object.assign(new Error(code), {code}))
     }
@@ -19,9 +19,9 @@ function createPolyfilledObject(code) {
 }
 
 const t = require('tap')
+
 const a = path.join(__dirname, 'a')
 const b = path.join(__dirname, 'b')
-const c = path.join(__dirname, 'c')
 
 t.test('setup', t => {
   const pfs = createPolyfilledObject('EPERM')
@@ -38,7 +38,7 @@ t.test('setup', t => {
   t.end()
 })
 
-t.test('rename EPERM', { timeout: 100 }, t => {
+t.test('rename EPERM', {timeout: 100}, t => {
   t.plan(2)
 
   const pfs = createPolyfilledObject('EPERM')
@@ -48,7 +48,7 @@ t.test('rename EPERM', { timeout: 100 }, t => {
   })
 })
 
-t.test('rename EACCES', { timeout: 100 }, t => {
+t.test('rename EACCES', {timeout: 100}, t => {
   t.plan(2)
 
   const pfs = createPolyfilledObject('EACCES')
@@ -58,7 +58,7 @@ t.test('rename EACCES', { timeout: 100 }, t => {
   })
 })
 
-t.test('rename ENOENT', { timeout: 100 }, t => {
+t.test('rename ENOENT', {timeout: 100}, t => {
   t.plan(2)
 
   const pfs = createPolyfilledObject('ENOENT')
@@ -68,7 +68,7 @@ t.test('rename ENOENT', { timeout: 100 }, t => {
   })
 })
 
-t.test('rename EPERM then stat ENOENT', { timeout: 2000 }, t => {
+t.test('rename EPERM then stat ENOENT', {timeout: 2000}, t => {
   t.plan(3)
 
   const pfs = createPolyfilledObject('EPERM')
@@ -88,8 +88,14 @@ t.test('rename EPERM then stat ENOENT', { timeout: 2000 }, t => {
   })
 })
 
-t.test('cleanup', function (t) {
-  try { fs.rmdirSync(a) } catch (e) {}
-  try { fs.rmdirSync(b) } catch (e) {}
+t.test('cleanup', t => {
+  try {
+    fs.rmdirSync(a)
+  } catch (e) {}
+
+  try {
+    fs.rmdirSync(b)
+  } catch (e) {}
+
   t.end()
 })

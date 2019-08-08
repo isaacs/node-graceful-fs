@@ -1,25 +1,26 @@
-var fs = require('fs')
-var path = require('path')
-var gfs = require('./helpers/graceful-fs.js')
-var importFresh = require('import-fresh')
-var fs$close = fs.close
-var fs$closeSync = fs.closeSync
-var test = require('tap').test
+'use strict'
 
-var gfsPath = path.resolve(__dirname, '..', 'graceful-fs.js')
+const fs = require('fs')
+const path = require('path')
+const importFresh = require('import-fresh')
+const gfs = require('./helpers/graceful-fs.js')
+const {test} = require('tap')
 
-test('`close` is patched correctly', function(t) {
-  t.match(fs$close.toString(), /graceful-fs shared queue/, 'patch fs.close');
-  t.match(fs$closeSync.toString(), /graceful-fs shared queue/, 'patch fs.closeSync');
-  t.match(gfs.close.toString(), /graceful-fs shared queue/, 'patch gfs.close');
-  t.match(gfs.closeSync.toString(), /graceful-fs shared queue/, 'patch gfs.closeSync');
+const {close, closeSync} = fs
+const gfsPath = path.resolve(__dirname, '..', 'graceful-fs.js')
 
-  var newGFS = importFresh(gfsPath)
-  t.equal(fs.close, fs$close)
-  t.equal(fs.closeSync, fs$closeSync)
-  t.equal(newGFS.close, fs$close)
-  t.equal(newGFS.closeSync, fs$closeSync)
-  t.end();
+test('`close` is patched correctly', t => {
+  t.match(close.toString(), /graceful-fs shared queue/, 'patch fs.close')
+  t.match(closeSync.toString(), /graceful-fs shared queue/, 'patch fs.closeSync')
+  t.match(gfs.close.toString(), /graceful-fs shared queue/, 'patch gfs.close')
+  t.match(gfs.closeSync.toString(), /graceful-fs shared queue/, 'patch gfs.closeSync')
+
+  const newGFS = importFresh(gfsPath)
+  t.equal(fs.close, close)
+  t.equal(fs.closeSync, closeSync)
+  t.equal(newGFS.close, close)
+  t.equal(newGFS.closeSync, closeSync)
+  t.end()
 })
 
 test('close error', t => {
@@ -27,7 +28,7 @@ test('close error', t => {
   const fd = fs.openSync(__filename, 'r')
   gfs.closeSync(fd)
 
-  t.throws(() => gfs.closeSync(fd), { code: 'EBADF' })
+  t.throws(() => gfs.closeSync(fd), {code: 'EBADF'})
   gfs.close(fd, err => {
     t.ok(err && err.code === 'EBADF')
     t.end()

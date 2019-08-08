@@ -1,20 +1,23 @@
-var fs = require("fs")
+'use strict'
 
-var readdir = fs.readdir
-fs.readdir = function(path, cb) {
-  process.nextTick(function() {
-    cb(null, ["b", "z", "a"])
+const fs = require('fs')
+
+fs.readdir = (path, cb) => {
+  process.nextTick(() => {
+    cb(null, ['b', 'z', 'a'])
   })
 }
 
-var g = require('./helpers/graceful-fs.js')
-var test = require("tap").test
+const g = require('./helpers/graceful-fs.js')
+const {test} = require('tap')
 
-test("readdir reorder", function (t) {
-  g.readdir("whatevers", function (er, files) {
-    if (er)
+test('readdir reorder', t => {
+  g.readdir('whatevers', (er, files) => {
+    if (er) {
       throw er
-    t.same(files, [ "a", "b", "z" ])
+    }
+
+    t.same(files, ['a', 'b', 'z'])
     t.end()
   })
 })

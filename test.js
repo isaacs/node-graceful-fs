@@ -1,24 +1,19 @@
-var fs = require('fs')
-var tap = require('tap')
-var dir = __dirname + '/test'
-var node = process.execPath
+'use strict'
 
-var files = fs.readdirSync(dir)
-var env = Object.keys(process.env).reduce(function (env, k) {
-  env[k] = process.env[k]
-  return env
-}, {
+const path = require('path')
+const tap = require('tap')
+const glob = require('glob')
+
+const node = process.execPath
+const env = {
+  ...process.env,
   TEST_GFS_GLOBAL_PATCH: '1'
-})
+}
+const files = glob.sync('*.js', {cwd: path.join(__dirname, 'test')})
+  .map(f => path.join('test', f))
 
-files.filter(function (f) {
-  if (/\.js$/.test(f) && fs.statSync(dir + '/' + f).isFile()) {
-    // expose-gc is so we can check for memory leaks
-    tap.spawn(node, ['--no-warnings', '--expose-gc', 'test/' + f])
-    return true
-  }
-}).forEach(function (f) {
-  tap.spawn(node, ['--no-warnings', '--expose-gc', 'test/' + f], {
-    env: env
-  }, '🐵  test/' + f)
-})
+for (const f of files) {
+  const args = ['--no-warnings', '--expose-gc', f]
+  tap.spawn(node, args, {}, f)
+  tap.spawn(node, args, {env}, `${f} [🐵]`)
+}

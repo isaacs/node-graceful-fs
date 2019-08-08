@@ -1,43 +1,39 @@
-var fs = require('./helpers/graceful-fs.js');
-var rimraf = require('rimraf');
-var mkdirp = require('mkdirp');
-var test = require('tap').test;
-var p = require('path').resolve(__dirname, 'files');
+'use strict'
 
-process.chdir(__dirname)
+const fs = require('./helpers/graceful-fs.js')
+const rimraf = require('rimraf')
+const mkdirp = require('mkdirp')
+const {test} = require('tap')
+const p = require('path').resolve(__dirname, 'files-write-then-read')
 
 // Make sure to reserve the stderr fd
-process.stderr.write('');
+process.stderr.write('')
 
-var num = 4097;
-var paths = new Array(num);
+const paths = new Array(4097).fill().map((_, i) => `${p}/file-${i}`)
 
-test('make files', function (t) {
-  rimraf.sync(p);
-  mkdirp.sync(p);
+test('make files', t => {
+  rimraf.sync(p)
+  mkdirp.sync(p)
 
-  for (var i = 0; i < num; ++i) {
-    paths[i] = 'files/file-' + i;
-    fs.writeFileSync(paths[i], 'content');
+  for (const i in paths) {
+    fs.writeFileSync(paths[i], 'content')
   }
 
-  t.end();
+  t.end()
 })
 
 test('read files', function (t) {
   // now read them
-  t.plan(num)
-  for (var i = 0; i < num; ++i) {
-    fs.readFile(paths[i], 'ascii', function(err, data) {
-      if (err)
-        throw err;
-
+  t.plan(paths.length * 2)
+  for (const i in paths) {
+    fs.readFile(paths[i], 'ascii', (err, data) => {
+      t.error(err)
       t.equal(data, 'content')
-    });
+    })
   }
-});
+})
 
-test('cleanup', function (t) {
-  rimraf.sync(p);
-  t.end();
-});
+test('cleanup', t => {
+  rimraf.sync(p)
+  t.end()
+})
