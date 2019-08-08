@@ -8,7 +8,9 @@ var methods = [
   ['open', 'r'],
   ['readFile'],
   ['utimes', new Date(), new Date()],
-  ['readdir']
+  ['readdir'],
+  ['chown', 0, 0],
+  ['chmod', 0]
 ]
 
 // any version > v6 can do readdir(path, options, cb)

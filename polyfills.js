@@ -1,5 +1,3 @@
-var constants = require('constants')
-const checkForCallback = require('./check-for-callback.js')
 const normalizeArgs = require('./normalize-args.js')
 const {noop, noopSync} = require('./noop.js')
 
@@ -53,11 +51,13 @@ function patch (fs) {
   fs.lchmodSync = patchChownSyncErFilter(fs.lchmodSync)
 
   // if lchmod/lchown do not exist, then make them no-ops
+  /* istanbul ignore next */
   if (!fs.lchmod) {
     fs.lchmod = noop
     fs.lchmodSync = noopSync
   }
 
+  /* istanbul ignore next */
   if (!fs.lchown) {
     fs.lchown = noop
     fs.lchownSync = noopSync
@@ -72,6 +72,7 @@ function patch (fs) {
   // failures. Also, take care to yield the scheduler. Windows scheduling gives
   // CPU to a busy looping process, which can cause the program causing the lock
   // contention to be starved of CPU by node, so the contention doesn't resolve.
+  /* istanbul ignore next */
   if (process.platform === 'win32') {
     require('./windows-rename-polyfill.js')(fs)
   }
@@ -79,7 +80,7 @@ function patch (fs) {
   const {read, readSync} = fs
   // if read() returns EAGAIN, then just try it again.
   fs.read = (fd, buffer, offset, length, position, cb) => {
-    checkForCallback(cb)
+    cb = normalizeArgs([cb])[1]
 
     let eagCounter = 0
     read(fd, buffer, offset, length, position, function CB (er, ...args) {
@@ -112,6 +113,7 @@ function patch (fs) {
   }
 
   function patchChownErFilter (orig) {
+    /* istanbul ignore if */
     if (!orig) {
       return orig
     }
@@ -123,6 +125,7 @@ function patch (fs) {
   }
 
   function patchChownSyncErFilter (orig) {
+    /* istanbul ignore if */
     if (!orig) {
       return orig
     }

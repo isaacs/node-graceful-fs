@@ -2,8 +2,10 @@
 
 const {constants} = require('fs')
 const {noop, noopSync} = require('./noop.js')
+const normalizeArgs = require('./normalize-args.js')
 
 function patchLutimes (fs) {
+  /* istanbul ignore if: coverage for this file is ignored if O_SYMLINK is not defined. */
   if (typeof constants.O_SYMLINK === 'undefined') {
     fs.lutimes = noop
     fs.lutimesSync = noopSync
@@ -11,20 +13,17 @@ function patchLutimes (fs) {
   }
 
   fs.lutimes = (path, at, mt, cb) => {
+    cb = normalizeArgs([cb])[1]
+
     fs.open(path, constants.O_SYMLINK, (er, fd) => {
       if (er) {
-        if (cb) {
-          cb(er)
-        }
-
+        cb(er)
         return
       }
 
       fs.futimes(fd, at, mt, er => {
         fs.close(fd, er2 => {
-          if (cb) {
-            cb(er || er2)
-          }
+          cb(er || er2)
         })
       })
     })

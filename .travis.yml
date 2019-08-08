@@ -7,8 +7,9 @@ node_js:
   - 8
 
 os:
-  - linux
   - windows
+  - osx
+  - linux
 
 cache:
   directories:

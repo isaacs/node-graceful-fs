@@ -51,6 +51,7 @@ if (!global[gracefulQueue]) {
   }
   fs.closeSync[previous] = closeSync
 
+  /* istanbul ignore next */
   if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
     process.on('exit', () => {
       debug(global[gracefulQueue])

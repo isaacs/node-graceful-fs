@@ -15,7 +15,7 @@
     "postversion": "npm publish",
     "postpublish": "git push origin --follow-tags",
     "test": "nyc -r none node test.js | tap -",
-    "posttest": "nyc report -r text"
+    "posttest": "nyc report -r text --check-coverage"
   },
   "keywords": [
     "fs",

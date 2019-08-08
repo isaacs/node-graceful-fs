@@ -14,11 +14,11 @@ var env = Object.keys(process.env).reduce(function (env, k) {
 files.filter(function (f) {
   if (/\.js$/.test(f) && fs.statSync(dir + '/' + f).isFile()) {
     // expose-gc is so we can check for memory leaks
-    tap.spawn(node, ['--expose-gc', 'test/' + f])
+    tap.spawn(node, ['--no-warnings', '--expose-gc', 'test/' + f])
     return true
   }
 }).forEach(function (f) {
-  tap.spawn(node, ['--expose-gc', 'test/' + f], {
+  tap.spawn(node, ['--no-warnings', '--expose-gc', 'test/' + f], {
     env: env
   }, '🐵  test/' + f)
 })

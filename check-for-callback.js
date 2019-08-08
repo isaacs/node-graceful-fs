@@ -34,7 +34,7 @@ function checkForCallback (cb, ctor) {
     'Calling an asynchronous function without callback is deprecated.',
     'DeprecationWarning',
     'DEP0013',
-    ctor || checkForCallback
+    ctor
   )
   return false
 }

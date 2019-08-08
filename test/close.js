@@ -21,3 +21,15 @@ test('`close` is patched correctly', function(t) {
   t.equal(newGFS.closeSync, fs$closeSync)
   t.end();
 })
+
+test('close error', t => {
+  /* Open and close an fd to test fs.close / fs.closeSync errors */
+  const fd = fs.openSync(__filename, 'r')
+  gfs.closeSync(fd)
+
+  t.throws(() => gfs.closeSync(fd), { code: 'EBADF' })
+  gfs.close(fd, err => {
+    t.ok(err && err.code === 'EBADF')
+    t.end()
+  })
+})
