@@ -1,23 +1,37 @@
+'use strict'
+
 const normalizeArgs = require('./normalize-args.js')
 const {noop, noopSync} = require('./noop.js')
 
-var origCwd = process.cwd
-var cwd = null
+function patchProcess () {
+  if (/graceful-fs replacement/.test(process.cwd.toString())) {
+    // Don't patch more than once
+    return
+  }
 
-process.cwd = function() {
-  if (!cwd)
-    cwd = origCwd.call(process)
-  return cwd
-}
-try {
-  process.cwd()
-} catch (er) {}
+  const {cwd, chdir} = process
+  let pwd = null
 
-var chdir = process.chdir
-process.chdir = function(d) {
-  cwd = null
-  chdir.call(process, d)
+  process.cwd = () => {
+    /* graceful-fs replacement */
+    if (pwd === null) {
+      pwd = cwd()
+    }
+
+    return pwd
+  }
+
+  process.chdir = dir => {
+    pwd = null
+    chdir(dir)
+  }
+
+  try {
+    process.cwd()
+  } catch (er) {}
 }
+
+patchProcess()
 
 module.exports = patch
 

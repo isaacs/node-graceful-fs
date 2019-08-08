@@ -49,3 +49,15 @@ t.test('no memory leak when loading multiple times', t => {
 
   importFreshGracefulFs()
 })
+
+t.test('process is not repeatedly patched', t => {
+  const polyfills = path.resolve(__dirname, '../polyfills.js')
+  importFresh(polyfills)
+
+  let {cwd, chdir} = process
+
+  importFresh(polyfills)
+  t.is(cwd, process.cwd)
+  t.is(chdir, process.chdir)
+  t.end()
+})
