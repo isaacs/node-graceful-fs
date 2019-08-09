@@ -22,15 +22,13 @@ test('open an existing file works', t => {
   })
 })
 
-test('open a non-existing file throws', t => {
-  t.throws(
-    () => fs.openSync('this file does not exist', 'r'),
-    {code: 'ENOENT'}
-  )
+if (fs.promises) {
+  test('fs.promises.open an existing file works', async t => {
+    const filehandle = await fs.promises.open(__filename, 'r')
 
-  fs.open('neither does this file', 'r', (er, fd) => {
-    t.ok(er && er.code === 'ENOENT', 'should throw ENOENT')
-    t.notOk(fd, 'should not get an fd')
-    t.end()
+    t.type(filehandle.getAsyncId, 'function')
+    t.type(filehandle.read, 'function')
+
+    await filehandle.close()
   })
-})
+}

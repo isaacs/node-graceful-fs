@@ -1,6 +1,7 @@
 'use strict'
 
 const realFs = require('fs')
+const {promisify} = require('util')
 
 // For the fchown / fchmod do not accept `path` as the first parameter but
 // gfs doesn't duplicate this check so we can still verify that the errors
@@ -16,6 +17,12 @@ methods.forEach(method => {
     const err = makeErr(path, method)
     process.nextTick(() => cb(err))
   }
+
+  if (realFs.promises && !method.startsWith('f')) {
+    realFs.promises[method] = async path => {
+      throw makeErr(path, method)
+    }
+  }
 })
 
 function makeErr (path, method) {
@@ -26,22 +33,57 @@ function makeErr (path, method) {
 }
 
 const fs = require('./helpers/graceful-fs.js')
-const t = require('tap')
+const filehandlePromisesFileHandle = require('./helpers/promises.js')
+const {test} = require('tap')
 
 const errs = ['ENOSYS', 'EINVAL', 'EPERM']
-t.plan(errs.length * methods.length * 2)
+
+async function helper (t, err, method) {
+  const args = [err]
+  if (/chmod/.test(method)) {
+    args.push('some mode')
+  } else {
+    args.push('some uid', 'some gid')
+  }
+
+  t.doesNotThrow(() => fs[`${method}Sync`](...args), `${method}Sync does not throw ${err}`)
+  await promisify(fs[method])(...args)
+  if (fs.promises && !method.startsWith('f')) {
+    await fs.promises[method](...args)
+  }
+}
 
 errs.forEach(err => {
   methods.forEach(method => {
-    const args = [err]
-    if (/chmod/.test(method)) {
-      args.push('some mode')
-    } else {
-      args.push('some uid', 'some gid')
-    }
-
-    t.doesNotThrow(() => fs[`${method}Sync`](...args), `${method}Sync does not throw ${err}`)
-    args.push(e => t.notOk(e, `${method} does not throw ${err}`))
-    fs[method](...args)
+    test(`${method} ${err}`, t => helper(t, err, method))
   })
 })
+
+if (fs.promises) {
+  test('FileHandle.chown / FileHandle.chmod', async t => {
+    const filehandle = await fs.promises.open(__filename, 'r')
+    const PromisesFileHandle = filehandlePromisesFileHandle(filehandle)
+    ;['chmod', 'chown'].forEach(method => {
+      PromisesFileHandle[method] = async path => {
+        throw makeErr(path, method)
+      }
+    })
+
+    for (const err of errs) {
+      await filehandle.chmod(err, 'some mode')
+      await filehandle.chown(err, 'some uid', 'some gid')
+    }
+
+    await filehandle.close()
+
+    await t.rejects(
+      filehandle.chmod('EBADF', 'some mode'),
+      {code: 'EBADF'}
+    )
+
+    await t.rejects(
+      filehandle.chown('EBADF', 'some uid', 'some gid'),
+      {code: 'EBADF'}
+    )
+  })
+}

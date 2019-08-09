@@ -2,7 +2,10 @@
 
 const path = require('path')
 const fs = require('fs')
+const {promisify} = require('util')
+
 const windowsRenamePolyfill = require('../windows-rename-polyfill.js')
+const promiseWindowsRenamePolyfill = require('../promise-windows-rename-polyfill.js')
 
 function createPolyfilledObject (code) {
   const pfs = {
@@ -14,6 +17,17 @@ function createPolyfilledObject (code) {
   }
 
   windowsRenamePolyfill(pfs)
+  if (fs.promises) {
+    pfs.promises = {
+      stat: fs.promises.stat,
+      async rename (a, b) {
+        /* original rename */
+        throw Object.assign(new Error(code), {code})
+      }
+    }
+
+    promiseWindowsRenamePolyfill(pfs.promises)
+  }
 
   return pfs
 }
@@ -26,6 +40,9 @@ const b = path.join(__dirname, 'b')
 t.test('setup', t => {
   const pfs = createPolyfilledObject('EPERM')
   t.notMatch(pfs.rename.toString(), /original rename/)
+  if (pfs.promises) {
+    t.notMatch(pfs.promises.rename.toString(), /original rename/)
+  }
 
   try {
     fs.mkdirSync(a)
@@ -38,39 +55,36 @@ t.test('setup', t => {
   t.end()
 })
 
-t.test('rename EPERM', {timeout: 100}, t => {
-  t.plan(2)
-
+t.test('rename EPERM', {timeout: 100}, async t => {
   const pfs = createPolyfilledObject('EPERM')
-  pfs.rename(a, b, er => {
-    t.ok(er)
-    t.is(er.code, 'EPERM')
-  })
+  console.log('orig rename')
+  await t.rejects(promisify(pfs.rename)(a, b), {code: 'EPERM'})
+
+  if (pfs.promises) {
+    console.log('promise rename')
+    await t.rejects(pfs.promises.rename(a, b), {code: 'EPERM'})
+  }
 })
 
-t.test('rename EACCES', {timeout: 100}, t => {
-  t.plan(2)
-
+t.test('rename EACCES', {timeout: 100}, async t => {
   const pfs = createPolyfilledObject('EACCES')
-  pfs.rename(a, b, er => {
-    t.ok(er)
-    t.is(er.code, 'EACCES')
-  })
+  await t.rejects(promisify(pfs.rename)(a, b), {code: 'EACCES'})
+
+  if (pfs.promises) {
+    await t.rejects(pfs.promises.rename(a, b), {code: 'EACCES'})
+  }
 })
 
-t.test('rename ENOENT', {timeout: 100}, t => {
-  t.plan(2)
-
+t.test('rename ENOENT', {timeout: 100}, async t => {
   const pfs = createPolyfilledObject('ENOENT')
-  pfs.rename(a, b, er => {
-    t.ok(er)
-    t.is(er.code, 'ENOENT')
-  })
+  await t.rejects(promisify(pfs.rename)(a, b), {code: 'ENOENT'})
+
+  if (pfs.promises) {
+    await t.rejects(pfs.promises.rename(a, b), {code: 'ENOENT'})
+  }
 })
 
-t.test('rename EPERM then stat ENOENT', {timeout: 2000}, t => {
-  t.plan(3)
-
+t.test('rename EPERM then stat ENOENT', {timeout: 2000}, async t => {
   const pfs = createPolyfilledObject('EPERM')
   let enoent = 12
   pfs.stat = (p, cb) => {
@@ -81,11 +95,37 @@ t.test('rename EPERM then stat ENOENT', {timeout: 2000}, t => {
     }
   }
 
-  pfs.rename(a, b, er => {
-    t.notOk(enoent)
-    t.ok(er)
-    t.is(er.code, 'EPERM')
-  })
+  await t.rejects(promisify(pfs.rename)(a, b), {code: 'EPERM'})
+
+  if (pfs.promises) {
+    enoent = 12
+    pfs.promises.stat = async p => {
+      if (--enoent) {
+        throw Object.assign(new Error('ENOENT'), {code: 'ENOENT'})
+      }
+
+      return fs.promises.stat(p)
+    }
+
+    await t.rejects(pfs.promises.rename(a, b), {code: 'EPERM'})
+  }
+})
+
+t.test('rename EPERM then stat EACCES', {timeout: 2000}, async t => {
+  const pfs = createPolyfilledObject('EPERM')
+  pfs.stat = (p, cb) => {
+    cb(Object.assign(new Error('EACCES'), {code: 'EACCES'}))
+  }
+
+  await t.rejects(promisify(pfs.rename)(a, b), {code: 'EPERM'})
+
+  if (pfs.promises) {
+    pfs.promises.stat = async p => {
+      throw Object.assign(new Error('EACCES'), {code: 'EACCES'})
+    }
+
+    await t.rejects(pfs.promises.rename(a, b), {code: 'EPERM'})
+  }
 })
 
 t.test('cleanup', t => {

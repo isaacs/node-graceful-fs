@@ -47,12 +47,16 @@
   },
   "files": [
     "check-for-callback.js",
+    "chown-er-filter.js",
     "clone.js",
     "graceful-fs.js",
     "lutimes-polyfill.js",
     "noop.js",
     "normalize-args.js",
     "polyfills.js",
+    "promises.js",
+    "promise-windows-rename-polyfill.js",
+    "retry-queue.js",
     "windows-rename-polyfill.js"
   ],
   "dependencies": {}

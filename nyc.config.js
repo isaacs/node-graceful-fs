@@ -1,7 +1,17 @@
 'use strict'
 
-const {constants} = require('fs')
+const fs = require('fs')
 const glob = require('glob')
+
+const ignore = []
+
+if (!('O_SYMLINK' in fs.constants)) {
+  ignore.push('lutimes-polyfill.js')
+}
+
+if (!Object.getOwnPropertyDescriptor(fs, 'promises')) {
+  ignore.push('promises.js', 'promise-windows-rename-polyfill.js')
+}
 
 module.exports = {
   all: true,
@@ -11,6 +21,6 @@ module.exports = {
   branches: 100,
   include: glob.sync('*.js', {
     cwd: __dirname,
-    ignore: 'O_SYMLINK' in constants ? [] : ['lutimes-polyfill.js']
+    ignore
   })
 }
