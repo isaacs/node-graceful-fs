@@ -1,18 +1,14 @@
 'use strict'
 
 const path = require('path')
-const mkdirp = require('mkdirp')
 const rimraf = require('rimraf')
 const {test} = require('tap')
 const fs = require('./helpers/graceful-fs.js')
 
-const dir = path.resolve(__dirname, 'files')
-const ln = path.resolve(dir, 'symlink')
-
 if (!('O_SYMLINK' in fs.constants)) {
   test('stubs', t => {
-    fs.lutimes(ln, 0, 0, () => {})
-    fs.lutimesSync(ln, 0, 0)
+    fs.lutimes('ln', 0, 0, () => {})
+    fs.lutimesSync('ln', 0, 0)
     t.end()
   })
 
@@ -20,10 +16,8 @@ if (!('O_SYMLINK' in fs.constants)) {
   process.exit(0)
 }
 
-test('setup', t => {
-  mkdirp.sync(dir)
-  t.end()
-})
+const dir = fs.mkdtempSync(path.join(__dirname, 'temp-files-'))
+const ln = path.resolve(dir, 'symlink')
 
 test('lutimes', t => {
   fs.symlinkSync(__filename, ln)

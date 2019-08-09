@@ -3,20 +3,15 @@
 const path = require('path')
 const fs = require('./helpers/graceful-fs.js')
 const rimraf = require('rimraf')
-const mkdirp = require('mkdirp')
 const {test} = require('tap')
-
-const p = path.resolve(__dirname, 'files-read-write-stream')
 
 // Make sure to reserve the stderr fd
 process.stderr.write('')
 
+const p = fs.mkdtempSync(path.join(__dirname, 'temp-files-'))
 const paths = new Array(4097).fill().map((_, i) => `${p}/file-${i}`)
 
 test('write files', t => {
-  rimraf.sync(p)
-  mkdirp.sync(p)
-
   t.plan(paths.length * 2)
   for (const i in paths) {
     let stream
