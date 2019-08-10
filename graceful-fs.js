@@ -6,6 +6,7 @@ const polyfills = require('./polyfills.js')
 const clone = require('./clone.js')
 const normalizeArgs = require('./normalize-args.js')
 const {initQueue, retry, enqueue} = require('./retry-queue.js')
+const readdirSort = require('./readdir-sort.js')
 
 const gracefulPatched = Symbol.for('graceful-fs.patched')
 
@@ -109,11 +110,7 @@ function patch (fs) {
   fs.readdir = patchENFILE(fs.readdir, (args, cb) => [
     args,
     (err, files) => {
-      if (files && files.sort) {
-        files = files.sort()
-      }
-
-      cb(err, files)
+      cb(err, readdirSort(files))
     }
   ])
 

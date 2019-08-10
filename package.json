@@ -56,6 +56,7 @@
     "polyfills.js",
     "promises.js",
     "promise-windows-rename-polyfill.js",
+    "readdir-sort.js",
     "retry-queue.js",
     "windows-rename-polyfill.js"
   ],

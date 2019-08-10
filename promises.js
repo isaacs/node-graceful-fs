@@ -5,6 +5,7 @@ const {promisify} = require('util')
 const clone = require('./clone.js')
 const chownErFilter = require('./chown-er-filter.js')
 const {retry, enqueue} = require('./retry-queue.js')
+const readdirSort = require('./readdir-sort.js')
 
 // This is the native C++ FileHandle
 const {FileHandle} = process.binding('fs')
@@ -133,7 +134,7 @@ function patchPromises (fs, orig) {
         promises.readFile = patchAsyncENFILE(promises.readFile)
         promises.writeFile = patchAsyncENFILE(promises.writeFile)
         promises.appendFile = patchAsyncENFILE(promises.appendFile)
-        promises.readdir = patchAsyncENFILE(promises.readdir, files => files.sort())
+        promises.readdir = patchAsyncENFILE(promises.readdir, readdirSort)
 
         promises.chmod = patchChown(promises.chmod)
         promises.lchmod = patchChown(promises.lchmod)

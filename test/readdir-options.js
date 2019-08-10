@@ -6,19 +6,29 @@ const {promisify} = require('util')
 
 let currentTest
 
-const strings = ['b', 'z', 'a']
-const buffs = strings.map(s => Buffer.from(s))
-const hexes = buffs.map(b => b.toString('hex'))
+function getRet (encoding, withFileTypes) {
+  const strings = ['b', 'z', 'a']
+  const buffs = strings.map(s => Buffer.from(s))
+  const hexes = buffs.map(b => b.toString('hex'))
 
-function getRet (encoding) {
+  let results
   switch (encoding) {
     case 'hex':
-      return hexes
+      results = hexes
+      break
     case 'buffer':
-      return buffs
+      results = buffs
+      break
     default:
-      return strings
+      results = strings
+      break
   }
+
+  if (withFileTypes) {
+    return results.map(name => new fs.Dirent(name))
+  }
+
+  return results
 }
 
 const emfile = () => Object.assign(new Error('synthetic emfile'), {code: 'EMFILE'})
@@ -41,7 +51,7 @@ fs.readdir = (path, options, cb) => {
   currentTest.isa(options, 'object')
   currentTest.ok(options)
   process.nextTick(() => {
-    cb(null, getRet(options.encoding))
+    cb(null, getRet(options.encoding, options.withFileTypes))
   })
 }
 
@@ -59,23 +69,30 @@ if (fs.promises) {
     failed = false
     currentTest.isa(options, 'object')
     currentTest.ok(options)
-    return getRet(options.encoding)
+    return getRet(options.encoding, options.withFileTypes)
   }
 }
 
 const g = require('./helpers/graceful-fs.js')
 
+const sortDirEnts = (a, b) => a.name.toString().localeCompare(b.name.toString())
 const encodings = ['buffer', 'hex', 'utf8', null]
 encodings.forEach(encoding => {
   const readdir = promisify(g.readdir)
   t.test('encoding=' + encoding, async t => {
     currentTest = t
     let files = await readdir('whatevers', {encoding})
-    t.same(files, getRet(encoding).sort())
+    t.same(files, getRet(encoding, false).sort())
+
+    files = await readdir('whatevers', {encoding, withFileTypes: true})
+    t.same(files, getRet(encoding, true).sort(sortDirEnts))
 
     if (g.promises) {
       files = await g.promises.readdir('whatevers', {encoding})
       t.same(files, getRet(encoding).sort())
+
+      files = await g.promises.readdir('whatevers', {encoding, withFileTypes: true})
+      t.same(files, getRet(encoding, true).sort(sortDirEnts))
     }
   })
 })
