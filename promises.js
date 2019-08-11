@@ -115,6 +115,8 @@ async function setupOpen (fs, promises) {
 function patchPromises (fs, orig) {
   let promises
   Object.defineProperty(fs, 'promises', {
+    // enumerable is true in node.js 11+ where fs.promises is stable
+    enumerable: orig.enumerable,
     configurable: true,
     get () {
       if (!promises) {

@@ -10,8 +10,9 @@ let cbArgs = []
 
 const filehandlePromisesFileHandle = require('./helpers/promises.js')
 
+const gfs = require('../graceful-fs.js')
 // We can't hijack the actual `fs` module so we have to fake it
-const fs = require('../graceful-fs.js').gracefulify({
+const fs = gfs.gracefulify({
   ...require('fs'),
   read (...args) {
     const cb = args.slice(-1)[0]
@@ -85,10 +86,10 @@ test('readSync unresolved EAGAIN', t => {
   t.end()
 })
 
-if (fs.promises) {
+if (gfs.promises) {
   test('promises read', async t => {
     t.ok(true)
-    const filehandle = await fs.promises.open(__filename, 'r')
+    const filehandle = await gfs.promises.open(__filename, 'r')
     let counter = 0
     const PromisesFileHandle = filehandlePromisesFileHandle(filehandle)
     PromisesFileHandle.read = async () => {
