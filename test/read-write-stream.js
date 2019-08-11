@@ -12,7 +12,7 @@ const p = fs.mkdtempSync(path.join(__dirname, 'temp-files-'))
 const paths = new Array(4097).fill().map((_, i) => `${p}/file-${i}`)
 
 test('write files', t => {
-  t.plan(paths.length * 2)
+  t.plan(paths.length * 4)
   for (const i in paths) {
     let stream
     switch (i % 3) {
@@ -28,6 +28,8 @@ test('write files', t => {
     }
 
     t.type(stream, fs.WriteStream)
+    stream.on('open', fd => t.type(fd, 'number'))
+    stream.on('ready', () => t.pass('ready'))
     stream.on('finish', () => t.pass('success'))
     stream.write('content')
     stream.end()
@@ -36,7 +38,7 @@ test('write files', t => {
 
 test('read files', t => {
   // now read them
-  t.plan(paths.length * 2)
+  t.plan(paths.length * 4)
   for (const i in paths) {
     let stream
     switch (i % 3) {
@@ -52,6 +54,8 @@ test('read files', t => {
     }
 
     t.type(stream, fs.ReadStream)
+    stream.on('open', fd => t.type(fd, 'number'))
+    stream.on('ready', () => t.pass('ready'))
     let data = ''
     stream.on('data', c => {
       data += c
@@ -70,6 +74,8 @@ function streamErrors (t, read, autoClose) {
   const matchDestroy = autoClose ? ['destroy'] : ['error', 'destroy']
   const matchError = autoClose ? ['destroy', 'error'] : ['error']
   const {destroy} = stream
+  stream.on('open', () => t.fail('unexpected open'))
+  stream.on('ready', () => t.fail('unexpected ready'))
   stream.destroy = () => {
     events.push('destroy')
     t.deepEqual(events, matchDestroy, 'got destroy')

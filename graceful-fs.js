@@ -60,6 +60,7 @@ function patchStream (fs, isRead) {
       } else {
         this.fd = fd
         this.emit('open', fd)
+        this.emit('ready')
         if (isRead) {
           this.read()
         }
