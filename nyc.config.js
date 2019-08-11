@@ -9,6 +9,11 @@ if (!('O_SYMLINK' in fs.constants)) {
   ignore.push('lutimes-polyfill.js')
 }
 
+if (!fs.Dirent) {
+  // Unavailable in node.js 8
+  ignore.push('readdir-sort.js')
+}
+
 if (!Object.getOwnPropertyDescriptor(fs, 'promises')) {
   ignore.push('promises.js', 'promise-windows-rename-polyfill.js')
 }

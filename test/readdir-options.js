@@ -84,8 +84,10 @@ encodings.forEach(encoding => {
     let files = await readdir('whatevers', {encoding})
     t.same(files, getRet(encoding, false).sort())
 
-    files = await readdir('whatevers', {encoding, withFileTypes: true})
-    t.same(files, getRet(encoding, true).sort(sortDirEnts))
+    if (fs.Dirent) {
+      files = await readdir('whatevers', {encoding, withFileTypes: true})
+      t.same(files, getRet(encoding, true).sort(sortDirEnts))
+    }
 
     if (g.promises) {
       files = await g.promises.readdir('whatevers', {encoding})

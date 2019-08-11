@@ -53,7 +53,10 @@ t.test('no memory leak when loading multiple times', async t => {
     await gfsinit()
   }
 
+  // Two gc cycles seems to help with node.js 8
   global.gc()
+  global.gc()
+
   checkHeap(t)
 })
 
