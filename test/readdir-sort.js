@@ -10,7 +10,7 @@ fs.readdir = (path, cb) => {
 }
 
 if (fs.promises) {
-  fs.promises.readdir = async (path) => {
+  fs.promises.readdir = async () => {
     return ['b', 'z', 'a']
   }
 }

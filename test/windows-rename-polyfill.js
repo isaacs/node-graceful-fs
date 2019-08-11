@@ -20,7 +20,7 @@ function createPolyfilledObject (code) {
   if (fs.promises) {
     pfs.promises = {
       stat: fs.promises.stat,
-      async rename (a, b) {
+      async rename () {
         /* original rename */
         throw Object.assign(new Error(code), {code})
       }
@@ -120,7 +120,7 @@ t.test('rename EPERM then stat EACCES', {timeout: 2000}, async t => {
   await t.rejects(promisify(pfs.rename)(a, b), {code: 'EPERM'})
 
   if (pfs.promises) {
-    pfs.promises.stat = async p => {
+    pfs.promises.stat = async () => {
       throw Object.assign(new Error('EACCES'), {code: 'EACCES'})
     }
 

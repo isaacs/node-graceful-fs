@@ -4,7 +4,7 @@ const path = require('path')
 const t = require('tap')
 
 const {chdir, cwd} = process
-let hits = {
+const hits = {
   chdir: 0,
   cwd: 0
 }

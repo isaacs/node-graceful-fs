@@ -91,7 +91,7 @@ if (fs.promises) {
     const filehandle = await fs.promises.open(__filename, 'r')
     let counter = 0
     const PromisesFileHandle = filehandlePromisesFileHandle(filehandle)
-    PromisesFileHandle.read = async (...args) => {
+    PromisesFileHandle.read = async () => {
       counter++
       throw eagain()
     }
@@ -104,7 +104,7 @@ if (fs.promises) {
     t.is(counter, 11)
 
     counter = 0
-    PromisesFileHandle.read = async (...args) => {
+    PromisesFileHandle.read = async () => {
       counter++
       if (counter !== 5) {
         throw eagain()

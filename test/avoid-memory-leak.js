@@ -24,12 +24,12 @@ function checkHeap (t) {
   )
 }
 
-async function gfsinit() {
+async function gfsinit () {
   const gfsPath = path.resolve(__dirname, '../graceful-fs.js')
   const gfsHelper = path.join(__dirname, './helpers/graceful-fs.js')
 
   delete require.cache[gfsPath]
-  let fs = importFresh(gfsHelper)
+  const fs = importFresh(gfsHelper)
   // Force initialization of `fs.promises` if available
   if (fs.promises) {
     // fs.promises.open has an async initialization, this ensures it's fully loaded
@@ -61,7 +61,7 @@ t.test('process is not repeatedly patched', t => {
   const polyfills = path.resolve(__dirname, '../polyfills.js')
   importFresh(polyfills)
 
-  let {cwd, chdir} = process
+  const {cwd, chdir} = process
 
   importFresh(polyfills)
   t.is(cwd, process.cwd, 'process.cwd not repeatedly patched')
