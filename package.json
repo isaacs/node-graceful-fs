@@ -14,7 +14,9 @@
     "preversion": "npm test",
     "postversion": "npm publish",
     "postpublish": "git push origin --follow-tags",
-    "test": "node test.js | tap -"
+    "pretest": "rimraf test/temp-files-*",
+    "test": "nyc -r none node test.js | tap -",
+    "posttest": "nyc report -r text --check-coverage"
   },
   "keywords": [
     "fs",
@@ -34,17 +36,29 @@
   ],
   "license": "ISC",
   "devDependencies": {
-    "import-fresh": "^2.0.0",
-    "mkdirp": "^0.5.0",
-    "rimraf": "^2.2.8",
-    "tap": "^12.7.0"
+    "glob": "^7.1.4",
+    "import-fresh": "^3.1.0",
+    "nyc": "^14.1.1",
+    "rimraf": "^2.6.3",
+    "tap": "^14.6.1"
+  },
+  "engines": {
+    "node": ">=8"
   },
   "files": [
-    "fs.js",
+    "check-for-callback.js",
+    "chown-er-filter.js",
+    "clone.js",
     "graceful-fs.js",
-    "legacy-streams.js",
+    "lutimes-polyfill.js",
+    "noop.js",
+    "normalize-args.js",
     "polyfills.js",
-    "clone.js"
+    "promises.js",
+    "promise-windows-rename-polyfill.js",
+    "readdir-sort.js",
+    "retry-queue.js",
+    "windows-rename-polyfill.js"
   ],
   "dependencies": {}
 }

@@ -1,34 +1,34 @@
-var fs = require('../')
-var test = require('tap').test
+'use strict'
 
-test('open an existing file works', function (t) {
-  var fd = fs.openSync(__filename, 'r')
+const fs = require('./helpers/graceful-fs.js')
+const {test} = require('tap')
+
+test('open an existing file works', t => {
+  const fd = fs.openSync(__filename, 'r')
   fs.closeSync(fd)
-  fs.open(__filename, 'r', function (er, fd) {
-    if (er) throw er
-    fs.close(fd, function (er) {
-      if (er) throw er
+  fs.open(__filename, 'r', (er, fd) => {
+    if (er) {
+      throw er
+    }
+
+    fs.close(fd, er => {
+      if (er) {
+        throw er
+      }
+
       t.pass('works')
       t.end()
     })
   })
 })
 
-test('open a non-existing file throws', function (t) {
-  var er
-  try {
-    var fd = fs.openSync('this file does not exist', 'r')
-  } catch (x) {
-    er = x
-  }
-  t.ok(er, 'should throw')
-  t.notOk(fd, 'should not get an fd')
-  t.equal(er.code, 'ENOENT')
+if (fs.promises) {
+  test('fs.promises.open an existing file works', async t => {
+    const filehandle = await fs.promises.open(__filename, 'r')
 
-  fs.open('neither does this file', 'r', function (er, fd) {
-    t.ok(er, 'should throw')
-    t.notOk(fd, 'should not get an fd')
-    t.equal(er.code, 'ENOENT')
-    t.end()
+    t.type(filehandle.getAsyncId, 'function')
+    t.type(filehandle.read, 'function')
+
+    await filehandle.close()
   })
-})
+}

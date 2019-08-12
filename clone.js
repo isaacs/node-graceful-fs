@@ -3,17 +3,11 @@
 module.exports = clone
 
 function clone (obj) {
-  if (obj === null || typeof obj !== 'object')
-    return obj
+  const copy = Object.create(Object.getPrototypeOf(obj))
 
-  if (obj instanceof Object)
-    var copy = { __proto__: obj.__proto__ }
-  else
-    var copy = Object.create(null)
-
-  Object.getOwnPropertyNames(obj).forEach(function (key) {
+  for (const key of Object.getOwnPropertyNames(obj)) {
     Object.defineProperty(copy, key, Object.getOwnPropertyDescriptor(obj, key))
-  })
+  }
 
   return copy
 }

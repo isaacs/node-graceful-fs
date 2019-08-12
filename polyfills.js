@@ -1,40 +1,47 @@
-var constants = require('constants')
+'use strict'
 
-var origCwd = process.cwd
-var cwd = null
+const normalizeArgs = require('./normalize-args.js')
+const {noop, noopSync} = require('./noop.js')
+const chownErFilter = require('./chown-er-filter.js')
 
-var platform = process.env.GRACEFUL_FS_PLATFORM || process.platform
+function patchProcess () {
+  if (/graceful-fs replacement/.test(process.cwd.toString())) {
+    // Don't patch more than once
+    return
+  }
 
-process.cwd = function() {
-  if (!cwd)
-    cwd = origCwd.call(process)
-  return cwd
+  const {cwd, chdir} = process
+  let pwd = null
+
+  process.cwd = () => {
+    /* graceful-fs replacement */
+    if (pwd === null) {
+      pwd = cwd()
+    }
+
+    return pwd
+  }
+
+  process.chdir = dir => {
+    pwd = null
+    chdir(dir)
+  }
+
+  try {
+    process.cwd()
+  } catch (er) {}
 }
-try {
-  process.cwd()
-} catch (er) {}
 
-var chdir = process.chdir
-process.chdir = function(d) {
-  cwd = null
-  chdir.call(process, d)
-}
+patchProcess()
 
 module.exports = patch
 
 function patch (fs) {
   // (re-)implement some things that are known busted or missing.
 
-  // lchmod, broken prior to 0.6.2
-  // back-port the fix here.
-  if (constants.hasOwnProperty('O_SYMLINK') &&
-      process.version.match(/^v0\.6\.[0-2]|^v0\.5\./)) {
-    patchLchmod(fs)
-  }
-
   // lutimes implementation, or no-op
   if (!fs.lutimes) {
-    patchLutimes(fs)
+    require('./lutimes-polyfill.js')(fs)
   }
 
   // https://github.com/isaacs/node-graceful-fs/issues/4
@@ -42,42 +49,33 @@ function patch (fs) {
   // It should not fail on enosys ever, as this just indicates
   // that a fs doesn't support the intended operation.
 
-  fs.chown = chownFix(fs.chown)
-  fs.fchown = chownFix(fs.fchown)
-  fs.lchown = chownFix(fs.lchown)
+  fs.chown = patchChownErFilter(fs.chown)
+  fs.fchown = patchChownErFilter(fs.fchown)
+  fs.lchown = patchChownErFilter(fs.lchown)
 
-  fs.chmod = chmodFix(fs.chmod)
-  fs.fchmod = chmodFix(fs.fchmod)
-  fs.lchmod = chmodFix(fs.lchmod)
+  fs.chmod = patchChownErFilter(fs.chmod)
+  fs.fchmod = patchChownErFilter(fs.fchmod)
+  fs.lchmod = patchChownErFilter(fs.lchmod)
 
-  fs.chownSync = chownFixSync(fs.chownSync)
-  fs.fchownSync = chownFixSync(fs.fchownSync)
-  fs.lchownSync = chownFixSync(fs.lchownSync)
+  fs.chownSync = patchChownSyncErFilter(fs.chownSync)
+  fs.fchownSync = patchChownSyncErFilter(fs.fchownSync)
+  fs.lchownSync = patchChownSyncErFilter(fs.lchownSync)
 
-  fs.chmodSync = chmodFixSync(fs.chmodSync)
-  fs.fchmodSync = chmodFixSync(fs.fchmodSync)
-  fs.lchmodSync = chmodFixSync(fs.lchmodSync)
-
-  fs.stat = statFix(fs.stat)
-  fs.fstat = statFix(fs.fstat)
-  fs.lstat = statFix(fs.lstat)
-
-  fs.statSync = statFixSync(fs.statSync)
-  fs.fstatSync = statFixSync(fs.fstatSync)
-  fs.lstatSync = statFixSync(fs.lstatSync)
+  fs.chmodSync = patchChownSyncErFilter(fs.chmodSync)
+  fs.fchmodSync = patchChownSyncErFilter(fs.fchmodSync)
+  fs.lchmodSync = patchChownSyncErFilter(fs.lchmodSync)
 
   // if lchmod/lchown do not exist, then make them no-ops
+  /* istanbul ignore next */
   if (!fs.lchmod) {
-    fs.lchmod = function (path, mode, cb) {
-      if (cb) process.nextTick(cb)
-    }
-    fs.lchmodSync = function () {}
+    fs.lchmod = noop
+    fs.lchmodSync = noopSync
   }
+
+  /* istanbul ignore next */
   if (!fs.lchown) {
-    fs.lchown = function (path, uid, gid, cb) {
-      if (cb) process.nextTick(cb)
-    }
-    fs.lchownSync = function () {}
+    fs.lchown = noop
+    fs.lchownSync = noopSync
   }
 
   // on Windows, A/V software can lock the directory, causing this
@@ -89,254 +87,72 @@ function patch (fs) {
   // failures. Also, take care to yield the scheduler. Windows scheduling gives
   // CPU to a busy looping process, which can cause the program causing the lock
   // contention to be starved of CPU by node, so the contention doesn't resolve.
-  if (platform === "win32") {
-    fs.rename = (function (fs$rename) { return function (from, to, cb) {
-      var start = Date.now()
-      var backoff = 0;
-      fs$rename(from, to, function CB (er) {
-        if (er
-            && (er.code === "EACCES" || er.code === "EPERM")
-            && Date.now() - start < 60000) {
-          setTimeout(function() {
-            fs.stat(to, function (stater, st) {
-              if (stater && stater.code === "ENOENT")
-                fs$rename(from, to, CB);
-              else
-                cb(er)
-            })
-          }, backoff)
-          if (backoff < 100)
-            backoff += 10;
-          return;
-        }
-        if (cb) cb(er)
-      })
-    }})(fs.rename)
+  /* istanbul ignore next */
+  if (process.platform === 'win32') {
+    require('./windows-rename-polyfill.js')(fs)
   }
 
+  const {read, readSync} = fs
   // if read() returns EAGAIN, then just try it again.
-  fs.read = (function (fs$read) {
-    function read (fd, buffer, offset, length, position, callback_) {
-      var callback
-      if (callback_ && typeof callback_ === 'function') {
-        var eagCounter = 0
-        callback = function (er, _, __) {
-          if (er && er.code === 'EAGAIN' && eagCounter < 10) {
-            eagCounter ++
-            return fs$read.call(fs, fd, buffer, offset, length, position, callback)
-          }
-          callback_.apply(this, arguments)
-        }
+  fs.read = (fd, buffer, offset, length, position, cb) => {
+    cb = normalizeArgs([cb])[1]
+
+    let eagCounter = 0
+    read(fd, buffer, offset, length, position, function CB (er, ...args) {
+      if (er && er.code === 'EAGAIN' && eagCounter < 10) {
+        eagCounter ++
+        read(fd, buffer, offset, length, position, CB)
+        return
       }
-      return fs$read.call(fs, fd, buffer, offset, length, position, callback)
-    }
 
-    // This ensures `util.promisify` works as it does for native `fs.read`.
-    read.__proto__ = fs$read
-    return read
-  })(fs.read)
+      cb(er, ...args)
+    })
+  }
+  // This ensures `util.promisify` works as it does for native `fs.read`.
+  Object.setPrototypeOf(fs.read, read)
 
-  fs.readSync = (function (fs$readSync) { return function (fd, buffer, offset, length, position) {
-    var eagCounter = 0
+  fs.readSync = (...args) => {
+    let eagCounter = 0
     while (true) {
       try {
-        return fs$readSync.call(fs, fd, buffer, offset, length, position)
+        return readSync(...args)
       } catch (er) {
         if (er.code === 'EAGAIN' && eagCounter < 10) {
           eagCounter ++
           continue
         }
+
         throw er
       }
     }
-  }})(fs.readSync)
+  }
 
-  function patchLchmod (fs) {
-    fs.lchmod = function (path, mode, callback) {
-      fs.open( path
-             , constants.O_WRONLY | constants.O_SYMLINK
-             , mode
-             , function (err, fd) {
-        if (err) {
-          if (callback) callback(err)
-          return
-        }
-        // prefer to return the chmod error, if one occurs,
-        // but still try to close, and report closing errors if they occur.
-        fs.fchmod(fd, mode, function (err) {
-          fs.close(fd, function(err2) {
-            if (callback) callback(err || err2)
-          })
-        })
-      })
+  function patchChownErFilter (orig) {
+    /* istanbul ignore if */
+    if (!orig) {
+      return orig
     }
 
-    fs.lchmodSync = function (path, mode) {
-      var fd = fs.openSync(path, constants.O_WRONLY | constants.O_SYMLINK, mode)
+    return (...userArgs) => {
+      const [args, cb] = normalizeArgs(userArgs)
+      return orig(...args, (er, ...cbArgs) => cb(chownErFilter(er), ...cbArgs))
+    }
+  }
 
-      // prefer to return the chmod error, if one occurs,
-      // but still try to close, and report closing errors if they occur.
-      var threw = true
-      var ret
+  function patchChownSyncErFilter (orig) {
+    /* istanbul ignore if */
+    if (!orig) {
+      return orig
+    }
+
+    return (...args) => {
       try {
-        ret = fs.fchmodSync(fd, mode)
-        threw = false
-      } finally {
-        if (threw) {
-          try {
-            fs.closeSync(fd)
-          } catch (er) {}
-        } else {
-          fs.closeSync(fd)
-        }
-      }
-      return ret
-    }
-  }
-
-  function patchLutimes (fs) {
-    if (constants.hasOwnProperty("O_SYMLINK")) {
-      fs.lutimes = function (path, at, mt, cb) {
-        fs.open(path, constants.O_SYMLINK, function (er, fd) {
-          if (er) {
-            if (cb) cb(er)
-            return
-          }
-          fs.futimes(fd, at, mt, function (er) {
-            fs.close(fd, function (er2) {
-              if (cb) cb(er || er2)
-            })
-          })
-        })
-      }
-
-      fs.lutimesSync = function (path, at, mt) {
-        var fd = fs.openSync(path, constants.O_SYMLINK)
-        var ret
-        var threw = true
-        try {
-          ret = fs.futimesSync(fd, at, mt)
-          threw = false
-        } finally {
-          if (threw) {
-            try {
-              fs.closeSync(fd)
-            } catch (er) {}
-          } else {
-            fs.closeSync(fd)
-          }
-        }
-        return ret
-      }
-
-    } else {
-      fs.lutimes = function (_a, _b, _c, cb) { if (cb) process.nextTick(cb) }
-      fs.lutimesSync = function () {}
-    }
-  }
-
-  function chmodFix (orig) {
-    if (!orig) return orig
-    return function (target, mode, cb) {
-      return orig.call(fs, target, mode, function (er) {
-        if (chownErOk(er)) er = null
-        if (cb) cb.apply(this, arguments)
-      })
-    }
-  }
-
-  function chmodFixSync (orig) {
-    if (!orig) return orig
-    return function (target, mode) {
-      try {
-        return orig.call(fs, target, mode)
+        return orig(...args)
       } catch (er) {
-        if (!chownErOk(er)) throw er
-      }
-    }
-  }
-
-
-  function chownFix (orig) {
-    if (!orig) return orig
-    return function (target, uid, gid, cb) {
-      return orig.call(fs, target, uid, gid, function (er) {
-        if (chownErOk(er)) er = null
-        if (cb) cb.apply(this, arguments)
-      })
-    }
-  }
-
-  function chownFixSync (orig) {
-    if (!orig) return orig
-    return function (target, uid, gid) {
-      try {
-        return orig.call(fs, target, uid, gid)
-      } catch (er) {
-        if (!chownErOk(er)) throw er
-      }
-    }
-  }
-
-  function statFix (orig) {
-    if (!orig) return orig
-    // Older versions of Node erroneously returned signed integers for
-    // uid + gid.
-    return function (target, options, cb) {
-      if (typeof options === 'function') {
-        cb = options
-        options = null
-      }
-      function callback (er, stats) {
-        if (stats) {
-          if (stats.uid < 0) stats.uid += 0x100000000
-          if (stats.gid < 0) stats.gid += 0x100000000
+        if (chownErFilter(er)) {
+          throw er
         }
-        if (cb) cb.apply(this, arguments)
       }
-      return options ? orig.call(fs, target, options, callback)
-        : orig.call(fs, target, callback)
     }
-  }
-
-  function statFixSync (orig) {
-    if (!orig) return orig
-    // Older versions of Node erroneously returned signed integers for
-    // uid + gid.
-    return function (target, options) {
-      var stats = options ? orig.call(fs, target, options)
-        : orig.call(fs, target)
-      if (stats.uid < 0) stats.uid += 0x100000000
-      if (stats.gid < 0) stats.gid += 0x100000000
-      return stats;
-    }
-  }
-
-  // ENOSYS means that the fs doesn't support the op. Just ignore
-  // that, because it doesn't matter.
-  //
-  // if there's no getuid, or if getuid() is something other
-  // than 0, and the error is EINVAL or EPERM, then just ignore
-  // it.
-  //
-  // This specific case is a silent failure in cp, install, tar,
-  // and most other unix tools that manage permissions.
-  //
-  // When running as root, or if other types of errors are
-  // encountered, then it's strict.
-  function chownErOk (er) {
-    if (!er)
-      return true
-
-    if (er.code === "ENOSYS")
-      return true
-
-    var nonroot = !process.getuid || process.getuid() !== 0
-    if (nonroot) {
-      if (er.code === "EINVAL" || er.code === "EPERM")
-        return true
-    }
-
-    return false
   }
 }

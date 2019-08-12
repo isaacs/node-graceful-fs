@@ -1,20 +1,29 @@
-var fs = require("fs")
+'use strict'
 
-var readdir = fs.readdir
-fs.readdir = function(path, cb) {
-  process.nextTick(function() {
-    cb(null, ["b", "z", "a"])
+const fs = require('fs')
+const {promisify} = require('util')
+
+fs.readdir = (path, cb) => {
+  process.nextTick(() => {
+    cb(null, ['b', 'z', 'a'])
   })
 }
 
-var g = require("../")
-var test = require("tap").test
+if (fs.promises) {
+  fs.promises.readdir = async () => {
+    return ['b', 'z', 'a']
+  }
+}
 
-test("readdir reorder", function (t) {
-  g.readdir("whatevers", function (er, files) {
-    if (er)
-      throw er
-    t.same(files, [ "a", "b", "z" ])
-    t.end()
-  })
+const g = require('./helpers/graceful-fs.js')
+const {test} = require('tap')
+
+test('readdir reorder', async t => {
+  let files = await promisify(g.readdir)('whatevers')
+  t.same(files, ['a', 'b', 'z'])
+
+  if (g.promises) {
+    files = await g.promises.readdir('whatevers')
+    t.same(files, ['a', 'b', 'z'])
+  }
 })

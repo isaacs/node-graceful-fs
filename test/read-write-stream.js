@@ -1,51 +1,144 @@
 'use strict'
 
-var fs = require('../')
-var rimraf = require('rimraf')
-var mkdirp = require('mkdirp')
-var test = require('tap').test
-var p = require('path').resolve(__dirname, 'files')
-
-process.chdir(__dirname)
+const path = require('path')
+const fs = require('./helpers/graceful-fs.js')
+const rimraf = require('rimraf')
+const {test} = require('tap')
 
 // Make sure to reserve the stderr fd
 process.stderr.write('')
 
-var num = 4097
-var paths = new Array(num)
+const p = fs.mkdtempSync(path.join(__dirname, 'temp-files-'))
+const paths = new Array(4097).fill().map((_, i) => `${p}/file-${i}`)
 
-test('write files', function (t) {
-  rimraf.sync(p)
-  mkdirp.sync(p)
+test('write files', t => {
+  t.plan(paths.length * 4)
+  for (const i in paths) {
+    let stream
+    switch (i % 3) {
+      case 0:
+        stream = fs.createWriteStream(paths[i])
+        break
+      case 1:
+        stream = fs.WriteStream(paths[i])
+        break
+      case 2:
+        stream = new fs.WriteStream(paths[i])
+        break
+    }
 
-  t.plan(num)
-  for (var i = 0; i < num; ++i) {
-    paths[i] = 'files/file-' + i
-    var stream = fs.createWriteStream(paths[i])
-    stream.on('finish', function () {
-      t.pass('success')
-    })
+    t.type(stream, fs.WriteStream)
+    stream.on('open', fd => t.type(fd, 'number'))
+    stream.on('ready', () => t.pass('ready'))
+    stream.on('finish', () => t.pass('success'))
     stream.write('content')
     stream.end()
   }
 })
 
-test('read files', function (t) {
+test('read files', t => {
   // now read them
-  t.plan(num)
-  for (var i = 0; i < num; ++i) (function (i) {
-    var stream = fs.createReadStream(paths[i])
-    var data = ''
-    stream.on('data', function (c) {
+  t.plan(paths.length * 4)
+  for (const i in paths) {
+    let stream
+    switch (i % 3) {
+      case 0:
+        stream = fs.createReadStream(paths[i])
+        break
+      case 1:
+        stream = fs.ReadStream(paths[i])
+        break
+      case 2:
+        stream = new fs.ReadStream(paths[i])
+        break
+    }
+
+    t.type(stream, fs.ReadStream)
+    stream.on('open', fd => t.type(fd, 'number'))
+    stream.on('ready', () => t.pass('ready'))
+    let data = ''
+    stream.on('data', c => {
       data += c
     })
-    stream.on('end', function () {
-      t.equal(data, 'content')
-    })
-  })(i)
+    stream.on('end', () => t.equal(data, 'content'))
+  }
 })
 
-test('cleanup', function (t) {
+function streamErrors (t, read, autoClose) {
+  const events = []
+  const initializer = read ? 'createReadStream' : 'createWriteStream'
+  const stream = fs[initializer](
+    path.join(__dirname, 'this dir does not exist', 'filename'),
+    {autoClose}
+  )
+  const matchDestroy = autoClose ? ['destroy'] : ['error', 'destroy']
+  const matchError = autoClose ? ['destroy', 'error'] : ['error']
+  const {destroy} = stream
+  stream.on('open', () => t.fail('unexpected open'))
+  stream.on('ready', () => t.fail('unexpected ready'))
+  stream.destroy = () => {
+    events.push('destroy')
+    t.deepEqual(events, matchDestroy, 'got destroy')
+    destroy.call(stream)
+  }
+
+  stream.on('error', () => {
+    events.push('error')
+    t.deepEqual(events, matchError, 'got error')
+    if (!autoClose) {
+      stream.destroy()
+    }
+
+    setTimeout(() => t.end(), 50)
+  })
+}
+
+test('read error autoClose', t => streamErrors(t, true, true))
+test('read error no autoClose', t => streamErrors(t, true, false))
+test('write error autoClose', t => streamErrors(t, false, true))
+test('write error no autoClose', t => streamErrors(t, false, false))
+
+test('ReadStream replacement', t => {
+  const testArgs = [__filename, {}]
+  let called = 0
+
+  class FakeReplacement {
+    constructor (...args) {
+      t.deepEqual(args, testArgs)
+      called++
+    }
+  }
+
+  const {ReadStream} = fs
+  fs.ReadStream = FakeReplacement
+  const rs = fs.createReadStream(...testArgs)
+  fs.ReadStream = ReadStream
+  t.type(rs, FakeReplacement)
+  t.is(called, 1)
+  t.end()
+})
+
+test('WriteStream replacement', t => {
+  const testArgs = [__filename, {}]
+  let called = 0
+
+  class FakeReplacement {
+    constructor (...args) {
+      t.deepEqual(args, testArgs)
+      called++
+    }
+  }
+
+  const {WriteStream} = fs
+  fs.WriteStream = FakeReplacement
+  const rs = fs.createWriteStream(...testArgs)
+  fs.WriteStream = WriteStream
+  t.type(rs, FakeReplacement)
+  t.is(called, 1)
+  t.end()
+})
+
+test('cleanup', t => {
   rimraf.sync(p)
   t.end()
 })

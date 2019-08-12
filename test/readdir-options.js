@@ -1,34 +1,45 @@
-var fs = require("fs")
-var t = require("tap")
+'use strict'
 
-var currentTest
+const fs = require('fs')
+const t = require('tap')
+const {promisify} = require('util')
 
-var strings = ['b', 'z', 'a']
-var buffs = strings.map(function (s) { return Buffer.from(s) })
-var hexes = buffs.map(function (b) { return b.toString('hex') })
+let currentTest
 
-function getRet (encoding) {
+function getRet (encoding, withFileTypes) {
+  const strings = ['b', 'z', 'a']
+  const buffs = strings.map(s => Buffer.from(s))
+  const hexes = buffs.map(b => b.toString('hex'))
+
+  let results
   switch (encoding) {
     case 'hex':
-      return hexes
+      results = hexes
+      break
     case 'buffer':
-      return buffs
+      results = buffs
+      break
     default:
-      return strings
+      results = strings
+      break
   }
+
+  if (withFileTypes) {
+    return results.map(name => new fs.Dirent(name))
+  }
+
+  return results
 }
 
-var readdir = fs.readdir
-var failed = false
-fs.readdir = function(path, options, cb) {
+const emfile = () => Object.assign(new Error('synthetic emfile'), {code: 'EMFILE'})
+let failed = false
+fs.readdir = (path, options, cb) => {
   if (!failed) {
     // simulate an EMFILE and then open and close a thing to retry
     failed = true
-    process.nextTick(function () {
-      var er = new Error('synthetic emfile')
-      er.code = 'EMFILE'
-      cb(er)
-      process.nextTick(function () {
+    process.nextTick(() => {
+      cb(emfile())
+      process.nextTick(() => {
         g.closeSync(fs.openSync(__filename, 'r'))
       })
     })
@@ -39,23 +50,51 @@ fs.readdir = function(path, options, cb) {
   currentTest.isa(cb, 'function')
   currentTest.isa(options, 'object')
   currentTest.ok(options)
-  process.nextTick(function() {
-    var ret = getRet(options.encoding)
-    cb(null, ret)
+  process.nextTick(() => {
+    cb(null, getRet(options.encoding, options.withFileTypes))
   })
 }
 
-var g = require("../")
+if (fs.promises) {
+  fs.promises.readdir = async (path, options) => {
+    if (!failed) {
+      // simulate an EMFILE and then open and close a thing to retry
+      failed = true
+      process.nextTick(() => {
+        g.closeSync(fs.openSync(__filename, 'r'))
+      })
+      throw emfile()
+    }
 
-var encodings = ['buffer', 'hex', 'utf8', null]
-encodings.forEach(function (enc) {
-  t.test('encoding=' + enc, function (t) {
+    failed = false
+    currentTest.isa(options, 'object')
+    currentTest.ok(options)
+    return getRet(options.encoding, options.withFileTypes)
+  }
+}
+
+const g = require('./helpers/graceful-fs.js')
+
+const sortDirEnts = (a, b) => a.name.toString().localeCompare(b.name.toString())
+const encodings = ['buffer', 'hex', 'utf8', null]
+encodings.forEach(encoding => {
+  const readdir = promisify(g.readdir)
+  t.test('encoding=' + encoding, async t => {
     currentTest = t
-    g.readdir("whatevers", { encoding: enc }, function (er, files) {
-      if (er)
-        throw er
-      t.same(files, getRet(enc).sort())
-      t.end()
-    })
+    let files = await readdir('whatevers', {encoding})
+    t.same(files, getRet(encoding, false).sort())
+
+    if (fs.Dirent) {
+      files = await readdir('whatevers', {encoding, withFileTypes: true})
+      t.same(files, getRet(encoding, true).sort(sortDirEnts))
+    }
+
+    if (g.promises) {
+      files = await g.promises.readdir('whatevers', {encoding})
+      t.same(files, getRet(encoding).sort())
+
+      files = await g.promises.readdir('whatevers', {encoding, withFileTypes: true})
+      t.same(files, getRet(encoding, true).sort(sortDirEnts))
+    }
   })
 })

@@ -5,11 +5,11 @@ node_js:
   - 12
   - 10
   - 8
-  - 6
 
 os:
-  - linux
   - windows
+  - osx
+  - linux
 
 cache:
   directories:

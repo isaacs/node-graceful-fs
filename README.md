@@ -12,7 +12,6 @@ resilient to errors.
 * Queues up `open` and `readdir` calls, and retries them once
   something closes if there is an EMFILE error from too many file
   descriptors.
-* fixes `lchmod` for Node versions prior to 0.6.2.
 * implements `fs.lutimes` if possible. Otherwise it becomes a noop.
 * ignores `EINVAL` and `EPERM` errors in `chown`, `fchown` or
   `lchown` if the user isn't root.
@@ -79,8 +78,7 @@ also imposes the challenge of keeping in sync with the core module.
 
 The current approach loads the `fs` module, and then creates a
 lookalike object that has all the same methods, except a few that are
-patched.  It is safe to use in all versions of Node from 0.8 through
-7.0.
+patched.
 
 ### v4
 
