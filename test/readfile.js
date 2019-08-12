@@ -33,8 +33,11 @@ test('read files', t => {
       t.equal(data, 'content')
     })
   }
+})
 
+test('cleanup', t => {
   rimraf.sync(dir)
+  t.end()
 })
 
 if (fs.promises) {
@@ -80,10 +83,6 @@ if (fs.promises) {
 
     t.is(results.length, paths.length)
     t.ok(results.every(r => r === 'content'))
+    rimraf.sync(tmpdir)
   })
 }
-
-test('cleanup', t => {
-  rimraf.sync(tmpdir)
-  t.end()
-})

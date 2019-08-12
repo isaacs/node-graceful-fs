@@ -14,9 +14,13 @@ const methods = [
   ['utimes', new Date(), new Date()],
   ['readdir'],
   ['readdir', {}],
-  ['chown', 0, 0],
   ['chmod', 0]
 ]
+
+if (process.platform !== 'win32') {
+  // fs.chown does nothing on win32 (doesn't even check if the file exists)
+  methods.push(['chown', 0, 0])
+}
 
 t.plan(methods.length)
 methods.forEach(([method, ...args]) => {

@@ -3,6 +3,9 @@
 const realFs = require('fs')
 const {promisify} = require('util')
 
+// This test depends on chown-er-filter.js not seeing us as root.
+process.getuid = () => 1000;
+
 // For the fchown / fchmod do not accept `path` as the first parameter but
 // gfs doesn't duplicate this check so we can still verify that the errors
 // are ignored without added complexity in this test
