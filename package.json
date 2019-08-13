@@ -41,5 +41,8 @@
   },
   "dependencies": {
     "natives": "^1.1.3"
+  },
+  "publishConfig": {
+    "tag": "old"
   }
 }
