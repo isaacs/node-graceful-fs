@@ -58,7 +58,9 @@ if (!global[gracefulQueue]) {
       })
     }
 
-    close[previousSymbol] = fs$close
+    Object.defineProperty(close, previousSymbol, {
+      value: fs$close
+    })
     return close
   })(fs.close)
 
@@ -69,7 +71,9 @@ if (!global[gracefulQueue]) {
       retry()
     }
 
-    closeSync[previousSymbol] = fs$closeSync
+    Object.defineProperty(closeSync, previousSymbol, {
+      value: fs$closeSync
+    })
     return closeSync
   })(fs.closeSync)
 
