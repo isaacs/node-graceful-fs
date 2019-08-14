@@ -5,7 +5,19 @@ var clone = require('./clone.js')
 
 var util = require('util')
 
-var gracefulQueue = Symbol.for('graceful-fs.queue')
+/* istanbul ignore next - node 0.x polyfill */
+var gracefulQueue
+var previousSymbol
+
+/* istanbul ignore else - node 0.x polyfill */
+if (typeof Symbol === 'function' && typeof Symbol.for === 'function') {
+  gracefulQueue = Symbol.for('graceful-fs.queue')
+  // This is used in testing by future versions
+  previousSymbol = Symbol.for('graceful-fs.previous')
+} else {
+  gracefulQueue = '___graceful-fs.queue'
+  previousSymbol = '___graceful-fs.previous'
+}
 
 function noop () {}
 
@@ -29,9 +41,6 @@ if (!global[gracefulQueue]) {
     }
   })
 
-  // This is used in testing by future versions
-  var previous = Symbol.for('graceful-fs.previous')
-
   // Patch fs.close/closeSync to shared queue version, because we need
   // to retry() whenever a close happens *anywhere* in the program.
   // This is essential when multiple graceful-fs instances are
@@ -49,7 +58,7 @@ if (!global[gracefulQueue]) {
       })
     }
 
-    close[previous] = fs$close
+    close[previousSymbol] = fs$close
     return close
   })(fs.close)
 
@@ -60,7 +69,7 @@ if (!global[gracefulQueue]) {
       retry()
     }
 
-    closeSync[previous] = fs$closeSync
+    closeSync[previousSymbol] = fs$closeSync
     return closeSync
   })(fs.closeSync)
 
