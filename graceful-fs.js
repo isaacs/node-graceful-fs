@@ -95,8 +95,7 @@ function patch (fs) {
   // Everything that references the open() function needs to be in here
   polyfills(fs)
   fs.gracefulify = patch
-  fs.FileReadStream = ReadStream;  // Legacy name.
-  fs.FileWriteStream = WriteStream;  // Legacy name.
+
   fs.createReadStream = createReadStream
   fs.createWriteStream = createWriteStream
   var fs$readFile = fs.readFile
@@ -213,8 +212,48 @@ function patch (fs) {
     WriteStream.prototype.open = WriteStream$open
   }
 
-  fs.ReadStream = ReadStream
-  fs.WriteStream = WriteStream
+  Object.defineProperty(fs, 'ReadStream', {
+    get: function () {
+      return ReadStream
+    },
+    set: function (val) {
+      ReadStream = val
+    },
+    enumerable: true,
+    configurable: true
+  })
+  Object.defineProperty(fs, 'WriteStream', {
+    get: function () {
+      return WriteStream
+    },
+    set: function (val) {
+      WriteStream = val
+    },
+    enumerable: true,
+    configurable: true
+  })
+
+  // legacy names
+  Object.defineProperty(fs, 'FileReadStream', {
+    get: function () {
+      return ReadStream
+    },
+    set: function (val) {
+      ReadStream = val
+    },
+    enumerable: true,
+    configurable: true
+  })
+  Object.defineProperty(fs, 'FileWriteStream', {
+    get: function () {
+      return WriteStream
+    },
+    set: function (val) {
+      WriteStream = val
+    },
+    enumerable: true,
+    configurable: true
+  })
 
   function ReadStream (path, options) {
     if (this instanceof ReadStream)
@@ -260,11 +299,11 @@ function patch (fs) {
   }
 
   function createReadStream (path, options) {
-    return new ReadStream(path, options)
+    return new fs.ReadStream(path, options)
   }
 
   function createWriteStream (path, options) {
-    return new WriteStream(path, options)
+    return new fs.WriteStream(path, options)
   }
 
   var fs$open = fs.open
