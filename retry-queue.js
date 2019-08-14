@@ -53,14 +53,18 @@ function initQueue () {
         cb(err)
       })
     }
-    fs.close[previous] = close
+    Object.defineProperty(fs.close, previous, {
+      value: close
+    });
 
     fs.closeSync = fd => {
       // This function uses the graceful-fs shared queue
       closeSync(fd)
       retry()
     }
-    fs.closeSync[previous] = closeSync
+    Object.defineProperty(fs.closeSync, previous, {
+      value: closeSync
+    });
 
     /* istanbul ignore next */
     if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
