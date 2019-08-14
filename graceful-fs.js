@@ -54,7 +54,9 @@ if (!global[gracefulQueue]) {
       })
     }
 
-    close[previous] = fs$close
+    Object.defineProperty(close, previous, {
+      value: fs$close
+    })
     return close
   })(fs.close)
 
@@ -65,7 +67,9 @@ if (!global[gracefulQueue]) {
       retry()
     }
 
-    closeSync[previous] = fs$closeSync
+    Object.defineProperty(closeSync, previous, {
+      value: fs$closeSync
+    })
     return closeSync
   })(fs.closeSync)
 
