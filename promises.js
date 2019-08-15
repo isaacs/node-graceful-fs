@@ -1,25 +1,9 @@
 'use strict'
 
-const {promisify} = require('util')
-
 const clone = require('./clone.js')
 const chownErFilter = require('./chown-er-filter.js')
 const {retry, enqueue} = require('./retry-queue.js')
 const readdirSort = require('./readdir-sort.js')
-
-// This is the native C++ FileHandle
-const {FileHandle} = process.binding('fs')
-
-// We need the constructor of the object returned by
-// fs.promises.open so we can extend it
-async function getPromisesFileHandle (open) {
-  const handle = await open(__filename, 'r')
-  const PromisesFileHandle = handle.constructor
-
-  await handle.close()
-
-  return PromisesFileHandle
-}
 
 function patchChown (orig) {
   return (...args) => orig(...args).catch(er => {
@@ -49,104 +33,125 @@ function patchAsyncENFILE (origImpl, next = res => res) {
   return (...args) => new Promise((resolve, reject) => attempt(args, resolve, reject))
 }
 
-async function setupOpen (fs, promises) {
-  const PromisesFileHandle = await getPromisesFileHandle(promises.open)
-  class GracefulFileHandle extends PromisesFileHandle {
-    // constructor (filehandle)
-    // getAsyncId ()
-    // get fd ()
-    // datasync ()
-    // sync ()
-    // stat (options)
-    // truncate (len = 0)
-    // utimes (atime, mtime)
-    // write (buffer, offset, length, position)
+async function patchFileHandleClose (promises) {
+  const filehandle = await promises.open(__filename, 'r')
+  const Klass = Object.getPrototypeOf(filehandle)
+  await filehandle.close()
 
-    // fd is already open so no need to use `patchAsyncENFILE` functions from here
-    // appendFile (data, options)
-    // readFile (options)
-    // writeFile (data, options)
+  const {close} = Klass
+  if (/graceful-fs replacement/.test(close.toString())) {
+    return
+  }
 
-    async chmod (mode) {
-      return super.chmod(mode).catch(er => {
-        if (chownErFilter(er)) {
-          throw er
-        }
-      })
-    }
+  Klass.close = async function (...args) {
+    /* graceful-fs replacement */
+    await close.apply(this, args)
+    retry()
+  }
 
-    async chown (uid, gid) {
-      return super.chown(uid, gid).catch(er => {
-        if (chownErFilter(er)) {
-          throw er
-        }
-      })
-    }
+  // Just in case a promises FileHandle closed before we could monkey-patch it
+  retry()
+}
 
-    async read (buffer, offset, length, position) {
-      let eagCounter = 0
-      while (true) {
+function initPromises (orig) {
+  // Checking `orig.value` handles situations where a user does
+  // something like require('graceful-fs).gracefulify({...require('fs')})
+  const origPromises = orig.value || orig.get()
+  patchFileHandleClose(origPromises).catch(
+    /* istanbul ignore next: this should never happen */
+    console.error
+  )
+
+  const promises = clone(origPromises)
+  promises.open = patchAsyncENFILE(promises.open, filehandle => {
+    /* It's too bad node.js makes it impossible to extend the
+     * actual filehandle class. */
+    const replacementFns = {
+      async chmod (...args) {
         try {
-          return await super.read(buffer, offset, length, position)
+          await filehandle.chmod(...args)
         } catch (er) {
-          if (er.code === 'EAGAIN' && eagCounter < 10) {
-            eagCounter ++
-            continue
+          if (chownErFilter(er)) {
+            throw er
           }
+        }
+      },
+      async chown (...args) {
+        try {
+          await filehandle.chown(...args)
+        } catch (er) {
+          if (chownErFilter(er)) {
+            throw er
+          }
+        }
+      },
+      async read (...args) {
+        let eagCounter = 0
+        while (true) {
+          try {
+            return await filehandle.read(...args)
+          } catch (er) {
+            if (er.code === 'EAGAIN' && eagCounter < 10) {
+              eagCounter ++
+              continue
+            }
 
-          throw er
+            throw er
+          }
         }
       }
     }
 
-    async close () {
-      await super.close()
-      retry()
-    }
+    return new Proxy(filehandle, {
+      get (filehandle, prop) {
+        if (!(prop in replacementFns)) {
+          const original = filehandle[prop]
+          if (typeof original !== 'function') {
+            return original
+          }
+
+          replacementFns[prop] = original.bind(filehandle)
+        }
+
+        return replacementFns[prop]
+      }
+    })
+  })
+
+  promises.readFile = patchAsyncENFILE(promises.readFile)
+  promises.writeFile = patchAsyncENFILE(promises.writeFile)
+  promises.appendFile = patchAsyncENFILE(promises.appendFile)
+  promises.readdir = patchAsyncENFILE(promises.readdir, readdirSort)
+
+  promises.chmod = patchChown(promises.chmod)
+  promises.lchmod = patchChown(promises.lchmod)
+  promises.chown = patchChown(promises.chown)
+  promises.lchown = patchChown(promises.lchown)
+
+  /* istanbul ignore next */
+  if (process.platform === 'win32') {
+    require('./promise-windows-rename-polyfill.js')(promises)
   }
 
-  // fs.open is already patched, do not use patchAsyncENFILE here
-  const open = promisify(fs.open)
-  promises.open = async (...args) => {
-    return new GracefulFileHandle(new FileHandle(await open(...args)))
-  }
+  return promises
 }
 
 function patchPromises (fs, orig) {
   let promises
+  /* istanbul ignore next: ignoring the version specific branch, initPromises is covered */
+  if (orig.enumerable) {
+    // If enumerable is enabled fs.promises is not experimental, no warning
+    promises = initPromises(orig)
+  }
+
   Object.defineProperty(fs, 'promises', {
     // enumerable is true in node.js 11+ where fs.promises is stable
     enumerable: orig.enumerable,
     configurable: true,
     get () {
+      /* istanbul ignore next: ignoring the version specific branch, initPromises is covered */
       if (!promises) {
-        // Checking `orig.value` handles situations where a user does
-        // something like require('graceful-fs).gracefulify({...require('fs')})
-        promises = clone(orig.value || orig.get())
-        const initOpen = setupOpen(fs, promises)
-
-        // This is temporary because node.js doesn't directly expose
-        // everything we need, some async operations are required to
-        // construct the real replacement for open
-        promises.open = async (...args) => {
-          await initOpen
-          return promises.open(...args)
-        }
-
-        promises.readFile = patchAsyncENFILE(promises.readFile)
-        promises.writeFile = patchAsyncENFILE(promises.writeFile)
-        promises.appendFile = patchAsyncENFILE(promises.appendFile)
-        promises.readdir = patchAsyncENFILE(promises.readdir, readdirSort)
-
-        promises.chmod = patchChown(promises.chmod)
-        promises.lchmod = patchChown(promises.lchmod)
-        promises.chown = patchChown(promises.chown)
-        promises.lchown = patchChown(promises.lchown)
-
-        /* istanbul ignore next */
-        if (process.platform === 'win32') {
-          require('./promise-windows-rename-polyfill.js')(promises)
-        }
+        promises = initPromises(orig)
       }
 
       return promises

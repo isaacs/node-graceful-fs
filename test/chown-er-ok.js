@@ -3,8 +3,9 @@
 const realFs = require('fs')
 const {promisify} = require('util')
 
+const realPromises = realFs.promises
 // This test depends on chown-er-filter.js not seeing us as root.
-process.getuid = () => 1000;
+process.getuid = () => 1000
 
 // For the fchown / fchmod do not accept `path` as the first parameter but
 // gfs doesn't duplicate this check so we can still verify that the errors
@@ -36,7 +37,6 @@ function makeErr (path, method) {
 }
 
 const fs = require('./helpers/graceful-fs.js')
-const filehandlePromisesFileHandle = require('./helpers/promises.js')
 const {test} = require('tap')
 
 const errs = ['ENOSYS', 'EINVAL', 'EPERM']
@@ -63,14 +63,19 @@ errs.forEach(err => {
 })
 
 if (fs.promises) {
-  test('FileHandle.chown / FileHandle.chmod', async t => {
-    const filehandle = await fs.promises.open(__filename, 'r')
-    const PromisesFileHandle = filehandlePromisesFileHandle(filehandle)
+  test('setup for promises', async () => {
+    const filehandle = await realPromises.open(__filename, 'r')
+    const PromisesFileHandle = Object.getPrototypeOf(filehandle)
     ;['chmod', 'chown'].forEach(method => {
       PromisesFileHandle[method] = async path => {
         throw makeErr(path, method)
       }
     })
+    await filehandle.close()
+  })
+
+  test('FileHandle.chown / FileHandle.chmod', async t => {
+    const filehandle = await fs.promises.open(__filename, 'r')
 
     for (const err of errs) {
       await filehandle.chmod(err, 'some mode')

@@ -24,10 +24,16 @@ test('open an existing file works', t => {
 
 if (fs.promises) {
   test('fs.promises.open an existing file works', async t => {
+    const stats = await fs.promises.stat(__filename)
     const filehandle = await fs.promises.open(__filename, 'r')
 
     t.type(filehandle.getAsyncId, 'function')
     t.type(filehandle.read, 'function')
+    t.type(filehandle.fd, 'number')
+
+    const result = await filehandle.readFile('utf8')
+    t.type(result, 'string')
+    t.is(result.length, stats.size);
 
     await filehandle.close()
   })

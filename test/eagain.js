@@ -8,7 +8,7 @@ let readPing
 let readSyncPing
 let cbArgs = []
 
-const filehandlePromisesFileHandle = require('./helpers/promises.js')
+const realPromises = require('fs').promises
 
 const gfs = require('../graceful-fs.js')
 // We can't hijack the actual `fs` module so we have to fake it
@@ -87,11 +87,17 @@ test('readSync unresolved EAGAIN', t => {
 })
 
 if (gfs.promises) {
+  let PromisesFileHandle
+  test('find PromisesFileHandle', async () => {
+    const filehandle = await realPromises.open(__filename, 'r')
+    PromisesFileHandle = Object.getPrototypeOf(filehandle)
+    await filehandle.close()
+  })
+
   test('promises read', async t => {
     t.ok(true)
     const filehandle = await gfs.promises.open(__filename, 'r')
     let counter = 0
-    const PromisesFileHandle = filehandlePromisesFileHandle(filehandle)
     PromisesFileHandle.read = async () => {
       counter++
       throw eagain()
