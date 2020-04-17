@@ -99,7 +99,7 @@ function patch (fs) {
             && Date.now() - start < 60000) {
           setTimeout(function() {
             fs.stat(to, function (stater, st) {
-              if (stater && stater.code === "ENOENT")
+              if (stater && (stater.code === "ENOENT" || st.isFile()))
                 fs$rename(from, to, CB);
               else
                 cb(er)
