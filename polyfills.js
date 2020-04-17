@@ -99,6 +99,11 @@ function patch (fs) {
             && Date.now() - start < 60000) {
           setTimeout(function() {
             fs.stat(to, function (stater, st) {
+              // If "to" already exists but is open by another process,
+              // windows gives EPERM when trying to overwrite the destination.
+              // We retry because it may be caused by anti-virus or something else
+              // out of our control (#104). If "to" is a directory, however,
+              // we must fail fast, because Windows will never allow this (#98)
               if ((stater && stater.code === "ENOENT") || (st && st.isFile()))
                 fs$rename(from, to, CB);
               else
