@@ -24,16 +24,31 @@ test('make files', function (t) {
   t.end();
 })
 
-test('read files', function (t) {
-  // now read them
-  t.plan(num)
+test('copy files', function (t) {
   for (var i = 0; i < num; ++i) {
-    fs.readFile(paths[i], 'ascii', function(err, data) {
+    paths[i] = 'files/file-' + i;
+    fs.copyFile(paths[i], paths[i] + '.copy', function(err) {
       if (err)
         throw err;
-
-      t.equal(data, 'content')
     });
+  }
+
+  t.end();
+})
+
+test('read files', function (t) {
+  function expectContent(err, data) {
+    if (err)
+      throw err;
+
+    t.equal(data, 'content')
+  }
+
+  // now read them
+  t.plan(num * 2)
+  for (var i = 0; i < num; ++i) {
+    fs.readFile(paths[i], 'ascii', expectContent);
+    fs.readFile(paths[i] + '.copy', 'ascii', expectContent);
   }
 });
 
