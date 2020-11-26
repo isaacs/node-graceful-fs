@@ -19,6 +19,9 @@ process.chdir = function(d) {
   cwd = null
   chdir.call(process, d)
 }
+if (chdir.disabled) {
+ process.chdir.disabled = chdir.disabled
+}
 
 module.exports = patch
 
