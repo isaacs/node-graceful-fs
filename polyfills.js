@@ -19,7 +19,7 @@ process.chdir = function(d) {
   cwd = null
   chdir.call(process, d)
 }
-process.chdir.__proto__ = chdir
+if (Object.setPrototypeOf) Object.setPrototypeOf(process.chdir, chdir)
 
 module.exports = patch
 
