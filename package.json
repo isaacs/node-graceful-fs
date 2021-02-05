@@ -14,7 +14,8 @@
     "preversion": "npm test",
     "postversion": "npm publish",
     "postpublish": "git push origin --follow-tags",
-    "test": "node test.js | tap -"
+    "test": "nyc --silent node test.js | tap -",
+    "posttest": "nyc report"
   },
   "keywords": [
     "fs",
