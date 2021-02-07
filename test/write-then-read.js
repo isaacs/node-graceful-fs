@@ -36,6 +36,18 @@ test('copy files', function (t) {
   t.end();
 })
 
+test('copy files with flags', function (t) {
+  for (var i = 0; i < num; ++i) {
+    paths[i] = 'files/file-' + i;
+    fs.copyFile(paths[i], paths[i] + '.copy', 2, function(err) {
+      if (err)
+        throw err;
+    });
+  }
+
+  t.end();
+})
+
 test('read files', function (t) {
   function expectContent(err, data) {
     if (err)
