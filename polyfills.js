@@ -14,12 +14,14 @@ try {
   process.cwd()
 } catch (er) {}
 
-var chdir = process.chdir
-process.chdir = function(d) {
-  cwd = null
-  chdir.call(process, d)
+if (process.chdir != null) {
+  var chdir = process.chdir
+  process.chdir = function(d) {
+    cwd = null
+    chdir.call(process, d)
+  }
+  if (Object.setPrototypeOf) Object.setPrototypeOf(process.chdir, chdir)
 }
-if (Object.setPrototypeOf) Object.setPrototypeOf(process.chdir, chdir)
 
 module.exports = patch
 
