@@ -1,7 +1,7 @@
 {
   "name": "graceful-fs",
   "description": "A drop-in replacement for fs, making various improvements.",
-  "version": "4.2.5",
+  "version": "4.2.6",
   "repository": {
     "type": "git",
     "url": "https://github.com/isaacs/node-graceful-fs"
@@ -46,6 +46,5 @@
     "legacy-streams.js",
     "polyfills.js",
     "clone.js"
-  ],
-  "dependencies": {}
+  ]
 }
