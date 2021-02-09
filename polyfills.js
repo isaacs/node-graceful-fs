@@ -14,6 +14,7 @@ try {
   process.cwd()
 } catch (er) {}
 
+// This check is needed until node.js 12 is required
 if (process.chdir != null) {
   var chdir = process.chdir
   process.chdir = function(d) {
