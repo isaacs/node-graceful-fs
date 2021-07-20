@@ -114,14 +114,13 @@ function patch (fs) {
 
     return go$readFile(path, options, cb)
 
-    function go$readFile (path, options, cb) {
+    function go$readFile (path, options, cb, attempts = 0) {
       return fs$readFile(path, options, function (err) {
         if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          enqueue([go$readFile, [path, options, cb]])
+          enqueue([go$readFile, [path, options, cb], attempts + 1, err])
         else {
           if (typeof cb === 'function')
             cb.apply(this, arguments)
-          retry()
         }
       })
     }
@@ -135,14 +134,13 @@ function patch (fs) {
 
     return go$writeFile(path, data, options, cb)
 
-    function go$writeFile (path, data, options, cb) {
+    function go$writeFile (path, data, options, cb, attempts = 0) {
       return fs$writeFile(path, data, options, function (err) {
         if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          enqueue([go$writeFile, [path, data, options, cb]])
+          enqueue([go$writeFile, [path, data, options, cb], attempts + 1, err])
         else {
           if (typeof cb === 'function')
             cb.apply(this, arguments)
-          retry()
         }
       })
     }
@@ -157,14 +155,13 @@ function patch (fs) {
 
     return go$appendFile(path, data, options, cb)
 
-    function go$appendFile (path, data, options, cb) {
+    function go$appendFile (path, data, options, cb, attempts = 0) {
       return fs$appendFile(path, data, options, function (err) {
         if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          enqueue([go$appendFile, [path, data, options, cb]])
+          enqueue([go$appendFile, [path, data, options, cb], attempts + 1, err])
         else {
           if (typeof cb === 'function')
             cb.apply(this, arguments)
-          retry()
         }
       })
     }
@@ -180,14 +177,13 @@ function patch (fs) {
     }
     return go$copyFile(src, dest, flags, cb)
 
-    function go$copyFile (src, dest, flags, cb) {
+    function go$copyFile (src, dest, flags, cb, attempts = 0) {
       return fs$copyFile(src, dest, flags, function (err) {
         if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          enqueue([go$copyFile, [src, dest, flags, cb]])
+          enqueue([go$copyFile, [src, dest, flags, cb], attempts + 1, err])
         else {
           if (typeof cb === 'function')
             cb.apply(this, arguments)
-          retry()
         }
       })
     }
@@ -201,10 +197,10 @@ function patch (fs) {
 
     return go$readdir(path, options, cb)
 
-    function go$readdir (path, options, cb) {
+    function go$readdir (path, options, cb, attempts = 0) {
       return fs$readdir(path, options, function (err, files) {
         if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          enqueue([go$readdir, [path, options, cb]])
+          enqueue([go$readdir, [path, options, cb], attempts + 1, err])
         else {
           if (files && files.sort)
             files.sort()
@@ -338,14 +334,13 @@ function patch (fs) {
 
     return go$open(path, flags, mode, cb)
 
-    function go$open (path, flags, mode, cb) {
+    function go$open (path, flags, mode, cb, attempts = 0) {
       return fs$open(path, flags, mode, function (err, fd) {
         if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
-          enqueue([go$open, [path, flags, mode, cb]])
+          enqueue([go$open, [path, flags, mode, cb], attempts + 1, err])
         else {
           if (typeof cb === 'function')
             cb.apply(this, arguments)
-          retry()
         }
       })
     }
@@ -357,12 +352,24 @@ function patch (fs) {
 function enqueue (elem) {
   debug('ENQUEUE', elem[0].name, elem[1])
   fs[gracefulQueue].push(elem)
+  retry()
 }
 
 function retry () {
+  if (fs[gracefulQueue].length === 0)
+    return
+
   var elem = fs[gracefulQueue].shift()
   if (elem) {
-    debug('RETRY', elem[0].name, elem[1])
-    elem[0].apply(null, elem[1])
+    const [fn, args, attempts, err] = elem
+    if (attempts < 10) {
+      debug('RETRY', fn.name, args, `ATTEMPT #${attempts}`)
+      fn.call(null, ...args, attempts)
+    } else {
+      const cb = args.pop()
+      if (typeof cb === 'function')
+        cb.call(null, err)
+    }
   }
+  setImmediate(retry)
 }
