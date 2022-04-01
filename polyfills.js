@@ -136,7 +136,7 @@ function patch (fs) {
     }
 
     // This ensures `util.promisify` works as it does for native `fs.read`.
-    if (Object.setPrototypeOf) Object.setPrototypeOf(read, fs$read)
+    if (Object.setPrototypeOf && fs$read != undefined) Object.setPrototypeOf(read, fs$read)
     return read
   })(fs.read)
 
