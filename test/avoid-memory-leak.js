@@ -15,7 +15,7 @@ function checkHeap (t) {
   else {
     const memoryUsage = stats.heapUsed - previousHeapStats.heapUsed
     const memoryUsageMB = Math.round(memoryUsage / Math.pow(1024, 2))
-    t.ok(memoryUsageMB < 2, 'expect less than 2MB difference, '
+    t.ok(memoryUsageMB < 10, 'expect less than 10MB difference, '
       + memoryUsageMB + 'MB difference found.');
   }
 }
