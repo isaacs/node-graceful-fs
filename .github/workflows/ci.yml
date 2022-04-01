@@ -25,5 +25,7 @@ jobs:
         run: npm install
 
       # Run for all environments
+      # Just output raw tap, the classic tap output gets confused sometimes
+      # on GH Actions, especially in windows.
       - name: Run Tap Tests
-        run: npm test
+        run: node test.js
