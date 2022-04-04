@@ -46,6 +46,7 @@ test('read files', function (t) {
 })
 
 test('cleanup', function (t) {
-  rimraf.sync(p)
-  t.end()
+  rimraf(p, function () {
+    t.end()
+  })
 })
