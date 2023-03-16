@@ -3,7 +3,7 @@ var t = require('tap')
 
 var fs = require('fs')
 
-var ers = ['EPERM', 'EACCES']
+var ers = ['EPERM', 'EBUSY', 'EACCES']
 t.plan(ers.length)
 ers.forEach(function(code) {
   t.test(code, function(t) {
