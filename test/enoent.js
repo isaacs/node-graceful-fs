@@ -58,20 +58,20 @@ function runTest (args) { return function (t) {
   var method = args.shift()
   args.unshift(file)
   var methodSync = method + 'Sync'
-  t.isa(g[methodSync], 'function')
+  t.type(g[methodSync], 'function')
   t.throws(function () {
     g[methodSync].apply(g, args)
   }, { code: 'ENOENT' })
   // add the callback
   args.push(verify(t))
-  t.isa(g[method], 'function')
+  t.type(g[method], 'function')
   t.doesNotThrow(function () {
     g[method].apply(g, args)
   })
 }}
 
 function verify (t) { return function (er) {
-  t.isa(er, Error)
+  t.type(er, Error)
   t.equal(er.code, 'ENOENT')
   t.end()
 }}

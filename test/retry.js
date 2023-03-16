@@ -31,6 +31,6 @@ test('eventually times out and returns error', function (t) {
   var fs = importFresh(path.dirname(__dirname))
   fs.readFile('literally anything', function (err) {
     t.equal(err.code, 'EMFILE', 'eventually got the EMFILE')
-    t.done()
+    t.end()
   })
 })

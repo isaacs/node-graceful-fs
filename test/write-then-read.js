@@ -1,10 +1,12 @@
 var fs = require('../')
 var rimraf = require('rimraf')
 var mkdirp = require('mkdirp')
-var test = require('tap').test
-var p = require('path').resolve(__dirname, 'files')
+var t = require('tap')
 
-process.chdir(__dirname)
+var td = t.testdir({ files: {} })
+var p = require('path').resolve(td, 'files')
+
+process.chdir(td)
 
 // Make sure to reserve the stderr fd
 process.stderr.write('')
@@ -12,7 +14,7 @@ process.stderr.write('')
 var num = 4097
 var paths = new Array(num)
 
-test('make files', function (t) {
+t.test('make files', function (t) {
   rimraf(p, function (err) {
     if (err) {
       throw err
@@ -31,7 +33,7 @@ test('make files', function (t) {
   })
 })
 
-test('copy files', function (t) {
+t.test('copy files', function (t) {
   var rem = num
   for (var i = 0; i < num; ++i) {
     paths[i] = 'files/file-' + i
@@ -45,7 +47,7 @@ test('copy files', function (t) {
   }
 })
 
-test('copy files with flags', function (t) {
+t.test('copy files with flags', function (t) {
   var rem = num
   for (var i = 0; i < num; ++i) {
     paths[i] = 'files/file-' + i
@@ -59,7 +61,7 @@ test('copy files with flags', function (t) {
   }
 })
 
-test('read files', function (t) {
+t.test('read files', function (t) {
   function expectContent(err, data) {
     if (err)
       throw err
@@ -73,10 +75,4 @@ test('read files', function (t) {
     fs.readFile(paths[i], 'ascii', expectContent)
     fs.readFile(paths[i] + '.copy', 'ascii', expectContent)
   }
-})
-
-test('cleanup', function (t) {
-  rimraf(p, function () {
-    t.end()
-  })
 })
