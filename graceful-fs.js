@@ -231,7 +231,7 @@ function patch (fs) {
     }
   }
 
-  if (process.version.substr(0, 4) === 'v0.8') {
+  if (process.version.slice(0, 4) === 'v0.8') {
     var legStreams = legacy(fs)
     ReadStream = legStreams.ReadStream
     WriteStream = legStreams.WriteStream
