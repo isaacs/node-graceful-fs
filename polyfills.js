@@ -1,4 +1,4 @@
-var constants = require('constants')
+var constants = require('fs').constants || require('constants')
 
 var origCwd = process.cwd
 var cwd = null
@@ -31,7 +31,7 @@ function patch (fs) {
 
   // lchmod, broken prior to 0.6.2
   // back-port the fix here.
-  if (constants.hasOwnProperty('O_SYMLINK') &&
+  if (constants.O_SYMLINK !== undefined &&
       process.version.match(/^v0\.6\.[0-2]|^v0\.5\./)) {
     patchLchmod(fs)
   }
@@ -206,7 +206,7 @@ function patch (fs) {
   }
 
   function patchLutimes (fs) {
-    if (constants.hasOwnProperty("O_SYMLINK") && fs.futimes) {
+    if (constants.O_SYMLINK !== undefined && fs.futimes) {
       fs.lutimes = function (path, at, mt, cb) {
         fs.open(path, constants.O_SYMLINK, function (er, fd) {
           if (er) {
