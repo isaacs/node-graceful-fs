@@ -36,8 +36,8 @@ fs.readdir = function(path, options, cb) {
   }
 
   failed = false
-  currentTest.isa(cb, 'function')
-  currentTest.isa(options, 'object')
+  currentTest.type(cb, 'function')
+  currentTest.type(options, 'object')
   currentTest.ok(options)
   process.nextTick(function() {
     var ret = getRet(options.encoding)

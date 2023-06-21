@@ -8,7 +8,7 @@ gfs.FileReadStream = frs
 gfs.FileWriteStream = fws
 t.equal(gfs.FileReadStream, frs)
 t.equal(gfs.FileWriteStream, fws)
-t.notEqual(gfs.ReadStream, frs)
-t.notEqual(gfs.WriteStream, fws)
-t.notEqual(gfs.ReadStream, gfs.FileReadStream)
-t.notEqual(gfs.WriteStream, gfs.FileWriteStream)
+t.not(gfs.ReadStream, frs)
+t.not(gfs.WriteStream, fws)
+t.not(gfs.ReadStream, gfs.FileReadStream)
+t.not(gfs.WriteStream, gfs.FileWriteStream)

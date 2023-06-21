@@ -1,7 +1,7 @@
 var fs = require("fs")
 
 var readdir = fs.readdir
-fs.readdir = function(path, cb) {
+fs.readdir = function(path, options, cb) {
   process.nextTick(function() {
     cb(null, ["b", "z", "a"])
   })

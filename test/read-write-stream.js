@@ -3,10 +3,14 @@
 var fs = require('../')
 var rimraf = require('rimraf')
 var mkdirp = require('mkdirp')
-var test = require('tap').test
-var p = require('path').resolve(__dirname, 'files')
+var t = require('tap')
 
-process.chdir(__dirname)
+var td = t.testdir({
+  files: {}
+})
+var p = require('path').resolve(td, 'files')
+
+process.chdir(td)
 
 // Make sure to reserve the stderr fd
 process.stderr.write('')
@@ -14,7 +18,7 @@ process.stderr.write('')
 var num = 4097
 var paths = new Array(num)
 
-test('write files', function (t) {
+t.test('write files', function (t) {
   rimraf.sync(p)
   mkdirp.sync(p)
 
@@ -30,7 +34,7 @@ test('write files', function (t) {
   }
 })
 
-test('read files', function (t) {
+t.test('read files', function (t) {
   // now read them
   t.plan(num)
   for (var i = 0; i < num; ++i) (function (i) {
@@ -43,9 +47,4 @@ test('read files', function (t) {
       t.equal(data, 'content')
     })
   })(i)
-})
-
-test('cleanup', function (t) {
-  rimraf.sync(p)
-  t.end()
 })
