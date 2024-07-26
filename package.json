@@ -34,6 +34,9 @@
     "EACCESS"
   ],
   "license": "ISC",
+  "engines": {
+    "node": ">=14.18.0 <15 || >=16"
+  },
   "devDependencies": {
     "import-fresh": "^2.0.0",
     "mkdirp": "^0.5.0",

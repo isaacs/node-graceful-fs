@@ -1,5 +1,5 @@
-var fs = require('fs')
-var path = require('path')
+var fs = require('node:fs')
+var path = require('node:path')
 var gfsPath = path.resolve(__dirname, '..', 'graceful-fs.js')
 var gfs = require(gfsPath)
 var importFresh = require('import-fresh')

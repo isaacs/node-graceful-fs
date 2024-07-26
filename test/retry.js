@@ -1,8 +1,8 @@
 'use strict'
 
 var importFresh = require('import-fresh')
-var path = require('path')
-var realFs = require('fs')
+var path = require('node:path')
+var realFs = require('node:fs')
 var test = require('tap').test
 
 var EMFILE = Object.assign(new Error('FAKE EMFILE'), { code: 'EMFILE' })

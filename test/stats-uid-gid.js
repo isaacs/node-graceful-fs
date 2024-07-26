@@ -1,6 +1,6 @@
 'use strict';
-var util = require('util')
-var fs = require('fs')
+var util = require('node:util')
+var fs = require('node:fs')
 var test = require('tap').test
 
 // mock fs.statSync to return signed uids/gids

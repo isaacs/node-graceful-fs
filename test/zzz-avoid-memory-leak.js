@@ -2,7 +2,7 @@ var importFresh = require('import-fresh');
 var t = require('tap')
 var v8
 try {
-  v8 = require('v8')
+  v8 = require('node:v8')
 } catch (er) {}
 
 if (!v8 || !v8.getHeapStatistics || typeof v8.getHeapStatistics().number_of_detached_contexts !== 'number') {

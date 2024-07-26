@@ -1,4 +1,4 @@
-var fs = require('fs')
+var fs = require('node:fs')
 var gfs = require('../graceful-fs.js')
 var test = require('tap').test
 

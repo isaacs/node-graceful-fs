@@ -5,7 +5,7 @@ if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH) {
   process.exit(0)
 }
 
-const fs = require('fs')
+const fs = require('node:fs')
 
 // Save originals before loading graceful-fs
 const names = [

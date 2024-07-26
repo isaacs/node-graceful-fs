@@ -8,7 +8,7 @@ var t = require('tap')
 var td = t.testdir({
   files: {}
 })
-var p = require('path').resolve(td, 'files')
+var p = require('node:path').resolve(td, 'files')
 
 process.chdir(td)
 

@@ -1,8 +1,8 @@
-var fs = require('fs')
+var fs = require('node:fs')
 var tap = require('tap')
 var dir = __dirname + '/test'
 var node = process.execPath
-var path = require('path')
+var path = require('node:path')
 
 var files = fs.readdirSync(dir)
 var env = Object.keys(process.env).reduce(function (env, k) {
@@ -12,7 +12,7 @@ var env = Object.keys(process.env).reduce(function (env, k) {
   TEST_GRACEFUL_FS_GLOBAL_PATCH: 1
 })
 
-tap.jobs = require('os').cpus().length
+tap.jobs = require('node:os').cpus().length
 var testFiles = files.filter(function (f) {
   return (/\.js$/.test(f) && fs.statSync(dir + '/' + f).isFile())
 })

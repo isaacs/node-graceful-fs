@@ -1,7 +1,7 @@
 process.env.GRACEFUL_FS_PLATFORM = 'win32'
 var t = require('tap')
 
-var fs = require('fs')
+var fs = require('node:fs')
 
 var ers = ['EPERM', 'EBUSY', 'EACCES']
 t.plan(ers.length)

@@ -1,9 +1,9 @@
-var fs = require('fs')
+var fs = require('node:fs')
 var polyfills = require('./polyfills.js')
 var legacy = require('./legacy-streams.js')
 var clone = require('./clone.js')
 
-var util = require('util')
+var util = require('node:util')
 
 /* istanbul ignore next - node 0.x polyfill */
 var gracefulQueue
@@ -84,7 +84,7 @@ if (!fs[gracefulQueue]) {
   if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
     process.on('exit', function() {
       debug(fs[gracefulQueue])
-      require('assert').equal(fs[gracefulQueue].length, 0)
+      require('node:assert').equal(fs[gracefulQueue].length, 0)
     })
   }
 }

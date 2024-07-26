@@ -1,4 +1,4 @@
-var realFs = require('fs')
+var realFs = require('node:fs')
 
 var methods = ['chown', 'chownSync', 'chmod', 'chmodSync']
 methods.forEach(function (method) {

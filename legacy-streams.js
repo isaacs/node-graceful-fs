@@ -1,4 +1,4 @@
-var Stream = require('stream').Stream
+var Stream = require('node:stream').Stream
 
 module.exports = legacy
 
