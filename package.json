@@ -33,7 +33,7 @@
     "EPERM",
     "EACCESS"
   ],
-  "license": "ISC",
+  "license": "BlueOak-1.0.0",
   "devDependencies": {
     "import-fresh": "^2.0.0",
     "mkdirp": "^0.5.0",
