@@ -8,6 +8,7 @@ var util = require('util')
 /* istanbul ignore next - node 0.x polyfill */
 var gracefulQueue
 var previousSymbol
+var retryScheduled = false
 
 /* istanbul ignore else - node 0.x polyfill */
 if (typeof Symbol === 'function' && typeof Symbol.for === 'function') {
@@ -371,7 +372,15 @@ function patch (fs) {
 function enqueue (elem) {
   debug('ENQUEUE', elem[0].name, elem[1])
   fs[gracefulQueue].push(elem)
-  retry()
+
+  if (retryScheduled)
+    return
+
+  retryScheduled = true
+  setTimeout(() => {
+    retryScheduled = false
+    retry()
+  }, 0)
 }
 
 // keep track of the timeout between retry() calls
