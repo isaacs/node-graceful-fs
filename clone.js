@@ -16,7 +16,19 @@ function clone (obj) {
     var copy = Object.create(null)
 
   Object.getOwnPropertyNames(obj).forEach(function (key) {
-    Object.defineProperty(copy, key, Object.getOwnPropertyDescriptor(obj, key))
+    var desc = Object.getOwnPropertyDescriptor(obj, key)
+    // Getter-only properties (common on bundler/ESM `fs` shims) cannot
+    // be assigned on the clone either unless we materialize them.
+    if (desc && desc.get && !desc.set) {
+      Object.defineProperty(copy, key, {
+        value: obj[key],
+        writable: true,
+        enumerable: desc.enumerable,
+        configurable: true
+      })
+    } else {
+      Object.defineProperty(copy, key, desc)
+    }
   })
 
   return copy

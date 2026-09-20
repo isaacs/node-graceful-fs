@@ -39,6 +39,98 @@ else if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || ''))
     console.error(m)
   }
 
+// Some bundlers (Vite/esbuild) and ESM interop layers expose `fs`
+// methods as getter-only properties.  Assigning then throws
+// "Cannot set property close of #<Object> which has only a getter".
+function setProp (obj, key, value) {
+  var desc
+  try {
+    desc = Object.getOwnPropertyDescriptor(obj, key)
+  } catch (er) {}
+
+  if (desc) {
+    if (desc.writable || typeof desc.set === 'function') {
+      try {
+        obj[key] = value
+        return true
+      } catch (er) {
+        return false
+      }
+    }
+    if (desc.configurable) {
+      try {
+        Object.defineProperty(obj, key, {
+          value: value,
+          writable: true,
+          enumerable: desc.enumerable,
+          configurable: true
+        })
+        return true
+      } catch (er) {
+        return false
+      }
+    }
+    return false
+  }
+
+  try {
+    obj[key] = value
+    return true
+  } catch (er) {
+    try {
+      Object.defineProperty(obj, key, {
+        value: value,
+        writable: true,
+        enumerable: true,
+        configurable: true
+      })
+      return true
+    } catch (er2) {
+      return false
+    }
+  }
+}
+
+function patchClose (target) {
+  var fs$close = target.close
+  if (typeof fs$close !== 'function' || fs$close[previousSymbol])
+    return
+
+  function close (fd, cb) {
+    return fs$close.call(fs, fd, function (err) {
+      // This function uses the graceful-fs shared queue
+      if (!err) {
+        resetQueue()
+      }
+
+      if (typeof cb === 'function')
+        cb.apply(this, arguments)
+    })
+  }
+
+  Object.defineProperty(close, previousSymbol, {
+    value: fs$close
+  })
+  setProp(target, 'close', close)
+}
+
+function patchCloseSync (target) {
+  var fs$closeSync = target.closeSync
+  if (typeof fs$closeSync !== 'function' || fs$closeSync[previousSymbol])
+    return
+
+  function closeSync (fd) {
+    // This function uses the graceful-fs shared queue
+    fs$closeSync.apply(fs, arguments)
+    resetQueue()
+  }
+
+  Object.defineProperty(closeSync, previousSymbol, {
+    value: fs$closeSync
+  })
+  setProp(target, 'closeSync', closeSync)
+}
+
 // Once time initialization
 if (!fs[gracefulQueue]) {
   // This queue can be shared by multiple loaded instances
@@ -49,37 +141,8 @@ if (!fs[gracefulQueue]) {
   // to retry() whenever a close happens *anywhere* in the program.
   // This is essential when multiple graceful-fs instances are
   // in play at the same time.
-  fs.close = (function (fs$close) {
-    function close (fd, cb) {
-      return fs$close.call(fs, fd, function (err) {
-        // This function uses the graceful-fs shared queue
-        if (!err) {
-          resetQueue()
-        }
-
-        if (typeof cb === 'function')
-          cb.apply(this, arguments)
-      })
-    }
-
-    Object.defineProperty(close, previousSymbol, {
-      value: fs$close
-    })
-    return close
-  })(fs.close)
-
-  fs.closeSync = (function (fs$closeSync) {
-    function closeSync (fd) {
-      // This function uses the graceful-fs shared queue
-      fs$closeSync.apply(fs, arguments)
-      resetQueue()
-    }
-
-    Object.defineProperty(closeSync, previousSymbol, {
-      value: fs$closeSync
-    })
-    return closeSync
-  })(fs.closeSync)
+  patchClose(fs)
+  patchCloseSync(fs)
 
   if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
     process.on('exit', function() {
@@ -364,6 +427,11 @@ function patch (fs) {
       })
     }
   }
+
+  // If the real `fs.close` was getter-only and could not be assigned,
+  // still wrap close on this lookalike so EMFILE retries keep working.
+  patchClose(fs)
+  patchCloseSync(fs)
 
   return fs
 }
