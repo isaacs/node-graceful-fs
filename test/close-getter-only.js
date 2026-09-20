@@ -61,7 +61,16 @@ if (process.argv.indexOf('--nonconfig') !== -1) {
     t.match(gfs.close.toString(), /graceful-fs shared queue/, 'patch gfs.close')
     t.match(gfs.closeSync.toString(), /graceful-fs shared queue/,
       'patch gfs.closeSync')
-    t.end()
+
+    var fd = gfs.openSync(__filename, 'r')
+    t.doesNotThrow(function () { gfs.closeSync(fd) }, 'patched closeSync works')
+    gfs.open(__filename, 'r', function (er, fd2) {
+      t.error(er)
+      gfs.close(fd2, function (er2) {
+        t.error(er2, 'patched close works')
+        t.end()
+      })
+    })
   })
 
   test('non-configurable getter-only close', function (t) {
