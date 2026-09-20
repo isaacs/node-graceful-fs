@@ -22,11 +22,29 @@ if (typeof Symbol === 'function' && typeof Symbol.for === 'function') {
 function noop () {}
 
 function publishQueue(context, queue) {
-  Object.defineProperty(context, gracefulQueue, {
-    get: function() {
-      return queue
-    }
-  })
+  // ESM `node:fs` namespace objects are not extensible (#245).
+  // Keep the Symbol-on-fs / Symbol-on-global sharing path when possible.
+  if (!context || (typeof Object.isExtensible === 'function' && !Object.isExtensible(context))) {
+    return
+  }
+  try {
+    Object.defineProperty(context, gracefulQueue, {
+      get: function() {
+        return queue
+      }
+    })
+  } catch (err) {
+    // ignore sealed / host objects that still reject the new property
+  }
+}
+
+// Shared retry queue. Prefer the published Symbol on `fs` so multiple
+// copies of this module see the same array. When `fs` is not extensible,
+// fall back to global (already used for cross-version sharing) and then
+// a module-local array so loading never throws.
+var fallbackQueue = []
+function getQueue () {
+  return fs[gracefulQueue] || global[gracefulQueue] || fallbackQueue
 }
 
 var debug = noop
@@ -42,7 +60,7 @@ else if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || ''))
 // Once time initialization
 if (!fs[gracefulQueue]) {
   // This queue can be shared by multiple loaded instances
-  var queue = global[gracefulQueue] || []
+  var queue = global[gracefulQueue] || fallbackQueue
   publishQueue(fs, queue)
 
   // Patch fs.close/closeSync to shared queue version, because we need
@@ -83,14 +101,14 @@ if (!fs[gracefulQueue]) {
 
   if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
     process.on('exit', function() {
-      debug(fs[gracefulQueue])
-      require('assert').equal(fs[gracefulQueue].length, 0)
+      debug(getQueue())
+      require('assert').equal(getQueue().length, 0)
     })
   }
 }
 
 if (!global[gracefulQueue]) {
-  publishQueue(global, fs[gracefulQueue]);
+  publishQueue(global, getQueue());
 }
 
 module.exports = patch(clone(fs))
@@ -370,7 +388,7 @@ function patch (fs) {
 
 function enqueue (elem) {
   debug('ENQUEUE', elem[0].name, elem[1])
-  fs[gracefulQueue].push(elem)
+  getQueue().push(elem)
   retry()
 }
 
@@ -382,12 +400,13 @@ var retryTimer
 // delay between attempts so that we'll retry these jobs sooner
 function resetQueue () {
   var now = Date.now()
-  for (var i = 0; i < fs[gracefulQueue].length; ++i) {
+  var queue = getQueue()
+  for (var i = 0; i < queue.length; ++i) {
     // entries that are only a length of 2 are from an older version, don't
     // bother modifying those since they'll be retried anyway.
-    if (fs[gracefulQueue][i].length > 2) {
-      fs[gracefulQueue][i][3] = now // startTime
-      fs[gracefulQueue][i][4] = now // lastTime
+    if (queue[i].length > 2) {
+      queue[i][3] = now // startTime
+      queue[i][4] = now // lastTime
     }
   }
   // call retry to make sure we're actively processing the queue
@@ -399,10 +418,11 @@ function retry () {
   clearTimeout(retryTimer)
   retryTimer = undefined
 
-  if (fs[gracefulQueue].length === 0)
+  var queue = getQueue()
+  if (queue.length === 0)
     return
 
-  var elem = fs[gracefulQueue].shift()
+  var elem = queue.shift()
   var fn = elem[0]
   var args = elem[1]
   // these items may be unset if they were added by an older graceful-fs
@@ -437,7 +457,7 @@ function retry () {
     } else {
       // if we can't do this job yet, push it to the end of the queue
       // and let the next iteration check again
-      fs[gracefulQueue].push(elem)
+      queue.push(elem)
     }
   }
 
