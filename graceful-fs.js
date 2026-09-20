@@ -93,6 +93,13 @@ if (!global[gracefulQueue]) {
   publishQueue(global, fs[gracefulQueue]);
 }
 
+// Node's writeFile/writeAll call the exported fs.write with the full
+// buffer length. fs.write rejects length > INT32_MAX (2GiB - 1), so
+// graceful-fs writeFile fails for buffers >= 2GiB while fs.promises
+// writeFile already chunks. Patch the real fs.write that writeAll uses.
+// See https://github.com/isaacs/node-graceful-fs/issues/256
+patchLargeWrites()
+
 module.exports = patch(clone(fs))
 if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs.__patched) {
     module.exports = patch(fs)
@@ -445,4 +452,199 @@ function retry () {
   if (retryTimer === undefined) {
     retryTimer = setTimeout(retry, 0)
   }
+}
+
+// uv_fs_write / fs.write take a signed 32-bit length.
+var MAX_WRITE = 2147483647
+
+function patchLargeWrites () {
+  if (typeof fs.write === 'function' &&
+      fs.write.toString().indexOf('chunk writes larger than INT32_MAX') === -1) {
+    fs.write = wrapWrite(fs.write)
+  }
+  if (typeof fs.writeSync === 'function' &&
+      fs.writeSync.toString().indexOf('chunk writes larger than INT32_MAX') === -1) {
+    fs.writeSync = wrapWriteSync(fs.writeSync)
+  }
+}
+
+function isBinaryWriteTarget (buffer) {
+  return buffer != null &&
+    typeof buffer !== 'string' &&
+    typeof buffer.byteLength === 'number'
+}
+
+function copyWriteSymbols (from, to) {
+  if (typeof Object.getOwnPropertySymbols !== 'function')
+    return
+  var symbols = Object.getOwnPropertySymbols(from)
+  for (var i = 0; i < symbols.length; i++) {
+    var desc = Object.getOwnPropertyDescriptor(from, symbols[i])
+    if (desc)
+      Object.defineProperty(to, symbols[i], desc)
+  }
+}
+
+function parseBinaryWrite (buffer, offset, length, position, callback) {
+  if (typeof offset === 'function') {
+    return {
+      offset: 0,
+      length: buffer.byteLength,
+      position: null,
+      cb: offset
+    }
+  }
+  if (typeof length === 'function') {
+    var off1 = typeof offset === 'number' ? offset : 0
+    return {
+      offset: off1,
+      length: buffer.byteLength - off1,
+      position: null,
+      cb: length
+    }
+  }
+  var off = typeof offset === 'number' ? offset : 0
+  var len = typeof length === 'number' ? length : buffer.byteLength - off
+  if (typeof position === 'function') {
+    return {
+      offset: off,
+      length: len,
+      position: null,
+      cb: position
+    }
+  }
+  return {
+    offset: off,
+    length: len,
+    position: typeof position === 'number' ? position : null,
+    cb: callback
+  }
+}
+
+function writeLarge (writeFn, fd, buffer, offset, length, position, callback) {
+  var remaining = length
+  var bufOffset = offset
+  var filePos = position
+  var total = 0
+
+  function onWrite (er, written) {
+    if (er) {
+      if (typeof callback === 'function')
+        callback(er, total, buffer)
+      return
+    }
+    written = written || 0
+    total += written
+    remaining -= written
+    bufOffset += written
+    if (typeof filePos === 'number')
+      filePos += written
+    if (remaining <= 0) {
+      if (typeof callback === 'function')
+        callback(null, total, buffer)
+      return
+    }
+    if (written === 0) {
+      if (typeof callback === 'function')
+        callback(null, total, buffer)
+      return
+    }
+    doWrite()
+  }
+
+  function doWrite () {
+    var chunk = remaining > MAX_WRITE ? MAX_WRITE : remaining
+    writeFn.call(fs, fd, buffer, bufOffset, chunk, filePos, onWrite)
+  }
+
+  doWrite()
+}
+
+function writeLargeSync (writeFn, fd, buffer, offset, length, position) {
+  var remaining = length
+  var bufOffset = offset
+  var filePos = position
+  var total = 0
+  while (remaining > 0) {
+    var chunk = remaining > MAX_WRITE ? MAX_WRITE : remaining
+    var written = writeFn.call(fs, fd, buffer, bufOffset, chunk, filePos)
+    written = written || 0
+    total += written
+    remaining -= written
+    bufOffset += written
+    if (typeof filePos === 'number')
+      filePos += written
+    if (written === 0)
+      break
+  }
+  return total
+}
+
+function wrapWrite (fs$write) {
+  function write (fd, buffer, offset, length, position, callback) {
+    // graceful-fs: chunk writes larger than INT32_MAX
+    if (isBinaryWriteTarget(buffer)) {
+      if (offset !== null && typeof offset === 'object') {
+        var cbOpt = length
+        if (typeof cbOpt === 'function') {
+          var ooff = typeof offset.offset === 'number' ? offset.offset : 0
+          var olen = typeof offset.length === 'number' ? offset.length : buffer.byteLength - ooff
+          var opos = typeof offset.position === 'number' ? offset.position : null
+          if (olen > MAX_WRITE) {
+            return writeLarge(fs$write, fd, buffer, ooff, olen, opos, cbOpt)
+          }
+        }
+      } else {
+        var parsed = parseBinaryWrite(buffer, offset, length, position, callback)
+        if (parsed.length > MAX_WRITE && typeof parsed.cb === 'function') {
+          return writeLarge(fs$write, fd, buffer, parsed.offset, parsed.length, parsed.position, parsed.cb)
+        }
+      }
+    }
+    return fs$write.apply(this, arguments)
+  }
+
+  if (Object.setPrototypeOf)
+    Object.setPrototypeOf(write, fs$write)
+  copyWriteSymbols(fs$write, write)
+  if (previousSymbol) {
+    Object.defineProperty(write, previousSymbol, {
+      value: fs$write
+    })
+  }
+  return write
+}
+
+function wrapWriteSync (fs$writeSync) {
+  function writeSync (fd, buffer, offset, length, position) {
+    // graceful-fs: chunk writes larger than INT32_MAX
+    if (isBinaryWriteTarget(buffer)) {
+      if (offset !== null && typeof offset === 'object') {
+        var ooff = typeof offset.offset === 'number' ? offset.offset : 0
+        var olen = typeof offset.length === 'number' ? offset.length : buffer.byteLength - ooff
+        var opos = typeof offset.position === 'number' ? offset.position : null
+        if (olen > MAX_WRITE) {
+          return writeLargeSync(fs$writeSync, fd, buffer, ooff, olen, opos)
+        }
+      } else {
+        var off = typeof offset === 'number' ? offset : 0
+        var len = typeof length === 'number' ? length : buffer.byteLength - off
+        var pos = typeof position === 'number' ? position : null
+        if (len > MAX_WRITE) {
+          return writeLargeSync(fs$writeSync, fd, buffer, off, len, pos)
+        }
+      }
+    }
+    return fs$writeSync.apply(this, arguments)
+  }
+
+  if (Object.setPrototypeOf)
+    Object.setPrototypeOf(writeSync, fs$writeSync)
+  copyWriteSymbols(fs$writeSync, writeSync)
+  if (previousSymbol) {
+    Object.defineProperty(writeSync, previousSymbol, {
+      value: fs$writeSync
+    })
+  }
+  return writeSync
 }
