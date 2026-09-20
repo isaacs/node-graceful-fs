@@ -6,82 +6,102 @@
 // object. graceful-fs used to throw:
 //   TypeError: Cannot define property Symbol(graceful-fs.queue), object is not extensible
 //
-// This test simulates that by Object.preventExtensions on the CJS fs
-// export (methods stay writable, which isolates #245 from getter-only
-// close assignment). Global-patch mode is skipped because that path
-// assigns `fs.__patched`, a new property.
+// nyc (via package-hash) preloads node_modules/graceful-fs onto the real
+// `fs` before tests run, so we load *this* tree's graceful-fs.js against a
+// cloned, Object.preventExtensions fs-like object instead.
 
-if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH) {
-  require('tap').plan(0, 'non-extensible fs coverage is for the default export path')
-  process.exit(0)
-}
-
-var fs = require('fs')
+var Module = require('module')
 var path = require('path')
-var importFresh = require('import-fresh')
+var clone = require('../clone.js')
+var realFs = require('fs')
 var test = require('tap').test
 
-var gfsPath = path.resolve(__dirname, '..', 'graceful-fs.js')
+var filename = path.resolve(__dirname, '..', 'graceful-fs.js')
 var queueSymbol = typeof Symbol === 'function' && typeof Symbol.for === 'function'
   ? Symbol.for('graceful-fs.queue')
   : '___graceful-fs.queue'
 
-test('precondition: CJS fs starts extensible', function (t) {
-  t.equal(Object.isExtensible(fs), true)
-  t.end()
-})
+function loadGracefulFs (fakeFs) {
+  var prev = process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH
+  delete process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH
+
+  var m = new Module(filename + '-non-extensible-' + Date.now() + '-' + Math.random(), module)
+  m.filename = filename
+  m.paths = Module._nodeModulePaths(path.dirname(filename))
+  var protoRequire = Module.prototype.require
+  m.require = function (request) {
+    if (request === 'fs')
+      return fakeFs
+    return protoRequire.call(this, request)
+  }
+
+  try {
+    m.load(filename)
+    return m.exports
+  } finally {
+    if (prev !== undefined)
+      process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH = prev
+  }
+}
+
+function nonExtensibleFs () {
+  var fakeFs = clone(realFs)
+  Object.preventExtensions(fakeFs)
+  return fakeFs
+}
 
 test('loading must not throw when fs is not extensible', function (t) {
-  Object.preventExtensions(fs)
-  t.equal(Object.isExtensible(fs), false)
+  var fakeFs = nonExtensibleFs()
+  t.equal(Object.isExtensible(fakeFs), false)
 
   var gfs
   t.doesNotThrow(function () {
-    gfs = require(gfsPath)
-  }, 'require(graceful-fs) does not throw')
+    gfs = loadGracefulFs(fakeFs)
+  }, 'loading graceful-fs does not throw')
 
   t.type(gfs.readFile, 'function')
   t.type(gfs.openSync, 'function')
   t.type(gfs.closeSync, 'function')
 
-  t.equal(fs[queueSymbol], undefined,
+  t.equal(fakeFs[queueSymbol], undefined,
     'does not define the queue Symbol on a non-extensible fs')
   t.ok(Array.isArray(global[queueSymbol]),
     'queue is stored off fs (on global) so copies can still share it')
 
-  var fd = gfs.openSync(__filename, 'r')
+  var fd = gfs.openSync(filename, 'r')
   gfs.closeSync(fd)
 
-  gfs.readFile(__filename, 'utf8', function (err, data) {
+  gfs.readFile(filename, 'utf8', function (err, data) {
     t.error(err, 'readFile still works')
     t.match(data, /not extensible/)
     t.end()
   })
 })
 
-test('import-fresh copies share the same queue via global', function (t) {
+test('later loads share the same queue via global', function (t) {
+  var fakeFs = nonExtensibleFs()
+  loadGracefulFs(fakeFs)
   var q1 = global[queueSymbol]
   t.ok(Array.isArray(q1))
 
-  var gfs2 = importFresh(gfsPath)
+  var gfs2 = loadGracefulFs(fakeFs)
   t.type(gfs2.readFile, 'function')
   t.equal(global[queueSymbol], q1,
     'second load keeps the shared queue instance')
-  t.equal(fs[queueSymbol], undefined)
+  t.equal(fakeFs[queueSymbol], undefined)
   t.end()
 })
 
 test('EMFILE retries use the off-fs queue', function (t) {
-  var readFile = fs.readFile
   var realNow = Date.now
   var EMFILE = Object.assign(new Error('FAKE EMFILE'), { code: 'EMFILE' })
+  var fakeFs = clone(realFs)
 
   t.teardown(function () {
-    fs.readFile = readFile
     Date.now = realNow
   })
 
-  fs.readFile = function (p, options, cb) {
+  fakeFs.readFile = function (p, options, cb) {
     process.nextTick(function () {
       cb(EMFILE)
       Date.now = function () {
@@ -89,8 +109,9 @@ test('EMFILE retries use the off-fs queue', function (t) {
       }
     })
   }
+  Object.preventExtensions(fakeFs)
 
-  var gfs = importFresh(gfsPath)
+  var gfs = loadGracefulFs(fakeFs)
   gfs.readFile('literally anything', function (err) {
     t.equal(err.code, 'EMFILE', 'eventually got the EMFILE from the shared queue')
     t.end()
