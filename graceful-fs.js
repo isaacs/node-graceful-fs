@@ -39,6 +39,21 @@ else if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || ''))
     console.error(m)
   }
 
+// A getter without a setter throws on assignment in strict mode
+// (bundlers do this) and ignores the assignment in sloppy mode.
+function installFsMethod (target, name, impl) {
+  var desc = Object.getOwnPropertyDescriptor(target, name)
+  if (desc && desc.get && !desc.set && desc.configurable) {
+    Object.defineProperty(target, name, {
+      configurable: true,
+      enumerable: desc.enumerable,
+      get: function () { return impl }
+    })
+    return
+  }
+  target[name] = impl
+}
+
 // Once time initialization
 if (!fs[gracefulQueue]) {
   // This queue can be shared by multiple loaded instances
@@ -49,7 +64,7 @@ if (!fs[gracefulQueue]) {
   // to retry() whenever a close happens *anywhere* in the program.
   // This is essential when multiple graceful-fs instances are
   // in play at the same time.
-  fs.close = (function (fs$close) {
+  installFsMethod(fs, 'close', (function (fs$close) {
     function close (fd, cb) {
       return fs$close.call(fs, fd, function (err) {
         // This function uses the graceful-fs shared queue
@@ -66,9 +81,9 @@ if (!fs[gracefulQueue]) {
       value: fs$close
     })
     return close
-  })(fs.close)
+  })(fs.close))
 
-  fs.closeSync = (function (fs$closeSync) {
+  installFsMethod(fs, 'closeSync', (function (fs$closeSync) {
     function closeSync (fd) {
       // This function uses the graceful-fs shared queue
       fs$closeSync.apply(fs, arguments)
@@ -79,7 +94,7 @@ if (!fs[gracefulQueue]) {
       value: fs$closeSync
     })
     return closeSync
-  })(fs.closeSync)
+  })(fs.closeSync))
 
   if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || '')) {
     process.on('exit', function() {
