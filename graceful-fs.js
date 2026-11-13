@@ -110,7 +110,7 @@ function patch (fs) {
   fs.readFile = readFile
   function readFile (path, options, cb) {
     if (typeof options === 'function')
-      cb = options, options = null
+      cb = options, options = undefined
 
     return go$readFile(path, options, cb)
 
@@ -130,7 +130,7 @@ function patch (fs) {
   fs.writeFile = writeFile
   function writeFile (path, data, options, cb) {
     if (typeof options === 'function')
-      cb = options, options = null
+      cb = options, options = undefined
 
     return go$writeFile(path, data, options, cb)
 
@@ -151,7 +151,7 @@ function patch (fs) {
     fs.appendFile = appendFile
   function appendFile (path, data, options, cb) {
     if (typeof options === 'function')
-      cb = options, options = null
+      cb = options, options = undefined
 
     return go$appendFile(path, data, options, cb)
 
@@ -194,7 +194,7 @@ function patch (fs) {
   var noReaddirOptionVersions = /^v[0-5]\./
   function readdir (path, options, cb) {
     if (typeof options === 'function')
-      cb = options, options = null
+      cb = options, options = undefined
 
     var go$readdir = noReaddirOptionVersions.test(process.version)
       ? function go$readdir (path, options, cb, startTime) {
