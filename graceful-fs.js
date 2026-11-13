@@ -116,7 +116,7 @@ function patch (fs) {
 
     function go$readFile (path, options, cb, startTime) {
       return fs$readFile(path, options, function (err) {
-        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE' || err.code === 'EAGAIN'))
           enqueue([go$readFile, [path, options, cb], err, startTime || Date.now(), Date.now()])
         else {
           if (typeof cb === 'function')
@@ -136,7 +136,7 @@ function patch (fs) {
 
     function go$writeFile (path, data, options, cb, startTime) {
       return fs$writeFile(path, data, options, function (err) {
-        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE' || err.code === 'EAGAIN'))
           enqueue([go$writeFile, [path, data, options, cb], err, startTime || Date.now(), Date.now()])
         else {
           if (typeof cb === 'function')
@@ -157,7 +157,7 @@ function patch (fs) {
 
     function go$appendFile (path, data, options, cb, startTime) {
       return fs$appendFile(path, data, options, function (err) {
-        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE' || err.code === 'EAGAIN'))
           enqueue([go$appendFile, [path, data, options, cb], err, startTime || Date.now(), Date.now()])
         else {
           if (typeof cb === 'function')
@@ -179,7 +179,7 @@ function patch (fs) {
 
     function go$copyFile (src, dest, flags, cb, startTime) {
       return fs$copyFile(src, dest, flags, function (err) {
-        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE' || err.code === 'EAGAIN'))
           enqueue([go$copyFile, [src, dest, flags, cb], err, startTime || Date.now(), Date.now()])
         else {
           if (typeof cb === 'function')
@@ -212,7 +212,7 @@ function patch (fs) {
 
     function fs$readdirCallback (path, options, cb, startTime) {
       return function (err, files) {
-        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE' || err.code === 'EAGAIN'))
           enqueue([
             go$readdir,
             [path, options, cb],
@@ -355,7 +355,7 @@ function patch (fs) {
 
     function go$open (path, flags, mode, cb, startTime) {
       return fs$open(path, flags, mode, function (err, fd) {
-        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE' || err.code === 'EAGAIN'))
           enqueue([go$open, [path, flags, mode, cb], err, startTime || Date.now(), Date.now()])
         else {
           if (typeof cb === 'function')
