@@ -364,6 +364,26 @@ function patch (fs) {
       })
     }
   }
+  
+  var fs$rm = fs.rm
+  fs.rm = rm
+  function rm(path, options, cb) {
+    if (typeof options === 'function')
+      cb = options, options = null
+
+    return go$rm(path, options, cb)
+
+    function go$rm (path, options, cb, startTime) {
+      return fs$rm(path, options, function (err, fd) {
+        if (err && (err.code === 'EMFILE' || err.code === 'ENFILE'))
+          enqueue([go$rm, [path, options, cb], err, startTime || Date.now(), Date.now()])
+        else {
+          if (typeof cb === 'function')
+            cb.apply(this, arguments)
+        }
+      })
+    }
+  }
 
   return fs
 }
